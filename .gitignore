@@ -1,9 +1,11 @@
-# Emacs
+# For Emacs
 *~
-
-# Ignore PortableGit directory
+# Binaries
+*.bin
+# Jim's special extension fir disassembled code
+*.disasm
+# PortableGit directory
 PortableGit/
-
 # Ignore pdf files (So I can keep 8086 documentation handy)
 *.pdf
 
