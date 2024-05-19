@@ -1,0 +1,49 @@
+#!/bin/bash
+
+###################
+## BUILD AND RUN ##
+###################
+
+# This assembles a .asm file with NASM,
+# builds the disassembler from C source,
+# uses it to disassemble the NASM output,
+# and finally tests output by diffing bins.
+# Needs a .asm file as an argument.
+
+echo "Argument 1 for bar is: "
+echo $1
+echo " "
+
+#c source file, sans extension
+disassembler="disasm8086"
+#inASM is the .asm passed to this .bat as an argument
+inASM=$1
+
+#Assemble input asm to bin
+nasm $inASM -o output/assembled_input_bin
+
+#Compile disassembler
+gcc $disassembler.c -o $disassembler
+#Run disassembled (Params are input bin, output asm)
+./$disassembler output/assembled_input_bin output/disassembled_output.asm
+
+echo .
+echo [Re-assembling for binary comparison...]
+echo .
+
+#RE-assemble
+nasm output/disassembled_output.asm -o output/REassembled_input
+
+#Compare
+echo /\\Comparing original bin with re-assembled bin...
+diff output/assembled_input_bin output/REassembled_input
+echo \\/Comparison over.
+
+#Clean up output
+echo .
+echo Cleaning up output files...
+mv -v output/* output_old
+echo .
+echo done
+
+#END
