@@ -42,7 +42,7 @@ echo \\/Comparison over.
 #Clean up output
 echo .
 echo Cleaning up output files...
-mv -v output/* output_old
+mv output/* output_old
 echo .
 echo done
 
