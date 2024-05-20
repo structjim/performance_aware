@@ -3,17 +3,21 @@
 //////////////////////////
 //
 // A linked list implementation for strings with a max size of 32, including \0.
-// (Strings exceeding the limit are truncated with null terminators forced.)
+// (Strings exceeding 32 bytes will be truncated, with null terminators forced.)
 //
 // How to use:
-// ALWAYS declare new LLs with NewLL macro, which zeroes out members.
-// ALWAYS call emptyLL() on an LL before it leaves scope.
+// ALWAYS declare new lists with the construct_ macro, which zeroes out members.
+// ALWAYS use the derstruct_ macro on an LL before it leaves scope.
+//
+#ifndef hocm_list_s32
+#define hocm_list_s32
 
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
 #include<stdbool.h>
-#define LinkedList_String32(newLLName) struct LinkedList_String32 newLLName = {0}
+#define construct_LinkedList_String32(listName) struct LinkedList_String32 listName = {0}
+#define destruct_LinkedList_String32(listName) emptyLL_S32(&listName)
 
 struct Node_String32
 {
@@ -179,9 +183,9 @@ void emptyLL_S32(struct LinkedList_String32 *listINP)
 		nowTargetNodeP = nextTargetNodeP;
 		nextTargetNodeP = nowTargetNodeP->prevP; //At head, ==NULL.
 		free(nowTargetNodeP);
-		printf("Freed.\n");
 	}
 	listINP->headP = NULL;
 	listINP->tailP = NULL;
 	//All nodes freed. LL struct is stack-allocated, so no need to free manually.
 }
+#endif

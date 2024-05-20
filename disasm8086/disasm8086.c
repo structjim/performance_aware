@@ -1,8 +1,8 @@
-#include"LinkedList_String32.HOCM.h"
 #include<stdio.h>
 #include<stdbool.h>
 #include<string.h>
 #include<time.h>
+#include"LinkedList_String32.HOCM.h"
 #define DEBUG_PRINT if(DEBUG)printf
 #define USE_BYTE false
 #define USE_WORD true //word=2bytes
@@ -58,7 +58,7 @@ void fillRmName(char rmName[], char rmBitsVal, char modBitsVal, bool W, short di
 void DEBUG_printBytesIn01s(unsigned char *startP, int size, int columns);
 void ERROR_TERMINATE(unsigned char *inBytesP,int *instrSizes,unsigned int instrsDone,FILE*fOutP,char msg[]);
 
-LinkedList_String32(instrStrings);
+construct_LinkedList_String32(instrStrings);
 char stringAuxBuffer[32];
 unsigned int instrsDone=0;
 unsigned int bytesDone=0;
@@ -100,8 +100,6 @@ int main(int argc, char *argv[])
 	int fInSz = ftell(fInP); //Store position (file size)
 	fseek(fInP, 0L, SEEK_SET);//Return to start of file
 	
-	//We'll store instr strings here until writing to out file.
-//char instrStrings[fInSz][32];
 	int instrSizes[fInSz];
 	
 	//These are the bytes after which we will write labels in the final asm.
@@ -216,7 +214,7 @@ int main(int argc, char *argv[])
 		else if(0b00111000==(instrP[0]&0b11111100)){opForm= S4ooooooDW_MdRegRgm_Disp_Disp ;strcpy(mnemName,"cmp");}///RM to:from REG
 		else if(0b00001000==(instrP[0]&0b11111100)){opForm= S4ooooooDW_MdRegRgm_Disp_Disp ;strcpy(mnemName,"or");}///RM to:from REG
 		else if(0b00110000==(instrP[0]&0b11111100)){opForm= S4ooooooDW_MdRegRgm_Disp_Disp ;strcpy(mnemName,"xor");}///RM to:from REG
-		else if(0b11111110==(instrP[0]&0b11111110))        //S4oooooooW_MdSubRgm_Disp_Disp
+		else if(0b11111110==(instrP[0]&0b11111110))       //S4oooooooW_MdSubRgm_Disp_Disp
 		{
 			opForm=  S4oooooooW_MdSubRgm_Disp_Disp;
 			subOpVal = (instrP[1]&0b00111000)>>3;
