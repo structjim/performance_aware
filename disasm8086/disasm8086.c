@@ -1,3 +1,4 @@
+#include"LinkedList_String32.HOCM.h"
 #include<stdio.h>
 #include<stdbool.h>
 #include<string.h>
@@ -55,8 +56,10 @@ short valFromUCharP(unsigned char *charP, bool W);
 void fillRegName(char regName[], char regBitsVal, bool W);
 void fillRmName(char rmName[], char rmBitsVal, char modBitsVal, bool W, short disp);
 void DEBUG_printBytesIn01s(unsigned char *startP, int size, int columns);
-void ERROR_TERMINATE(unsigned char *inBytesP,unsigned char *instrSizes,unsigned int instrsDone,FILE*fOutP,char msg[]);
+void ERROR_TERMINATE(unsigned char *inBytesP,int *instrSizes,unsigned int instrsDone,FILE*fOutP,char msg[]);
 
+LinkedList_String32(instrStrings);
+char stringAuxBuffer[32];
 unsigned int instrsDone=0;
 unsigned int bytesDone=0;
 bool W, S, D, V, Z;
@@ -98,8 +101,8 @@ int main(int argc, char *argv[])
 	fseek(fInP, 0L, SEEK_SET);//Return to start of file
 	
 	//We'll store instr strings here until writing to out file.
-	char instrStrings[fInSz][32];
-	unsigned char instrSizes[fInSz];
+//char instrStrings[fInSz][32];
+	int instrSizes[fInSz];
 	
 	//These are the bytes after which we will write labels in the final asm.
 	unsigned int labelCount=0;
@@ -294,7 +297,8 @@ int main(int argc, char *argv[])
 				DEBUG_PRINT("  %s (pure) Size: %i\n", mnemName, instrSz);
 				
 				//Build output string
-				sprintf(instrStrings[instrsDone], "%s", mnemName);
+				sprintf(stringAuxBuffer, "%s", mnemName);
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S1oooooReg: //to:with REG
 			{///xchg, inc, dec, push, pop
@@ -308,13 +312,14 @@ int main(int argc, char *argv[])
 				if( !strcmp(mnemName, "xchg") )
 				{
 					//(2 operands)
-					sprintf(instrStrings[instrsDone], "%s ax, %s", mnemName, regName);
+					sprintf(stringAuxBuffer, "%s ax, %s", mnemName, regName);
 					}
 				else
 				{
 					//(1 operand)
-					sprintf(instrStrings[instrsDone], "%s %s", mnemName, regName);
+					sprintf(stringAuxBuffer, "%s %s", mnemName, regName);
 				}
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S1oooooooW: //variable port
 			{///in, out
@@ -330,12 +335,13 @@ int main(int argc, char *argv[])
 				//Build output string
 				if(D)
 				{
-					sprintf(instrStrings[instrsDone], "%s %s, dx", mnemName, W?"ax":"al");
-				}///                                  mne a_, dx
+					sprintf(stringAuxBuffer, "%s %s, dx", mnemName, W?"ax":"al");
+				}///                            mne a_, dx
 				else
 				{
-					sprintf(instrStrings[instrsDone], "%s dx, %s", mnemName, W?"ax":"al");
-				}///                                  mne dx  a_  
+					sprintf(stringAuxBuffer, "%s dx, %s", mnemName, W?"ax":"al");
+				}///                            mne dx  a_
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S2oooooooW_Data: //fixed port
 			{///in, out
@@ -354,12 +360,13 @@ int main(int argc, char *argv[])
 				//Build output string
 				if(D)
 				{
-					sprintf(instrStrings[instrsDone], "%s %s, %i", mnemName, W?"ax":"al", dataOrAddr);
-				}///                                  mne a_, __
+					sprintf(stringAuxBuffer, "%s %s, %i", mnemName, W?"ax":"al", dataOrAddr);
+				}///                            mne a_, __
 				else
 				{
-					sprintf(instrStrings[instrsDone], "%s %i, %s", mnemName, dataOrAddr, W?"ax":"al");
-				}///                                  mne __, a_
+					sprintf(stringAuxBuffer, "%s %i, %s", mnemName, dataOrAddr, W?"ax":"al");
+				}///                            mne __, a_
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S1oooSrooo: //segment register
 			{///push, pop
@@ -370,7 +377,8 @@ int main(int argc, char *argv[])
 				DEBUG_PRINT("  %s (segment register) Size: %i\n", mnemName, instrSz);
 				
 				//Build output string
-				sprintf(instrStrings[instrsDone], "%s %s", mnemName, srNames[srBitsVal]);
+				sprintf(stringAuxBuffer, "%s %s", mnemName, srNames[srBitsVal]);
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S4ooooooDW_MdRegRgm_Disp_Disp: //RM to:from REG
 			{///MOV, XCHG(D), ADD, SUB, CMP, OR, XOR
@@ -415,12 +423,13 @@ int main(int argc, char *argv[])
 				//Build output string
 				if(D)
 				{	//XXX REG, R/M
-					sprintf(instrStrings[instrsDone], "%s %s, %s", mnemName, regName, rmName);
+					sprintf(stringAuxBuffer, "%s %s, %s", mnemName, regName, rmName);
 				}
 				else
 				{	//XXX R/M, REG
-					sprintf(instrStrings[instrsDone], "%s %s, %s", mnemName, rmName, regName);
+					sprintf(stringAuxBuffer, "%s %s, %s", mnemName, rmName, regName);
 				}
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S6ooooooSW_MdSubRgm_Di_Di_Da_Da: //IMM to RM
 			{///MOV, add, or, adc, sbb, and, sub, adc, cmp
@@ -490,12 +499,13 @@ int main(int argc, char *argv[])
 				//Build output string
 				if(modBitsVal == 0b11)
 				{
-					sprintf(instrStrings[instrsDone], "%s %s, %i", mnemName, rmName, dataOrAddr);
+					sprintf(stringAuxBuffer, "%s %s, %i", mnemName, rmName, dataOrAddr);
 				}
 				else
 				{
-					sprintf(instrStrings[instrsDone], "%s %s, %s %i", mnemName, rmName, W?"word":"byte", dataOrAddr);
+					sprintf(stringAuxBuffer, "%s %s, %s %i", mnemName, rmName, W?"word":"byte", dataOrAddr);
 				}
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S3ooooWReg_Data_Datw: //IMM to REG
 			{///MOV
@@ -515,7 +525,8 @@ int main(int argc, char *argv[])
 				fillRegName(regName, regBitsVal, W);
 				
 				//Build output string
-				sprintf(instrStrings[instrsDone], "%s %s, %i", mnemName, regName, dataOrAddr);
+				sprintf(stringAuxBuffer, "%s %s, %i", mnemName, regName, dataOrAddr);
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S3oooooooW_DaAd_DaAw: //MEM:IMM to:from ACC
 			{///MOV, ADD, SUB, CMP(data size always 1)
@@ -536,16 +547,16 @@ int main(int argc, char *argv[])
 				dataOrAddr = valFromUCharP(instrP+1, (dataSz>1));
 				MemAddrMode = (0b10100000==(instrP[0]&11111100));//101000xw
 				
-				
 				//Build output string
 				if(D) //Mem address mode needs [brackets]. Use AX if W, else AL if !W.
 				{
-					sprintf(instrStrings[instrsDone], "%s %s, %s%i%s", mnemName, W?"ax":"al", MemAddrMode?"[":"", dataOrAddr, MemAddrMode?"]":"");
+					sprintf(stringAuxBuffer, "%s %s, %s%i%s", mnemName, W?"ax":"al", MemAddrMode?"[":"", dataOrAddr, MemAddrMode?"]":"");
 				}///                                  mne a_,  [__]
 				else
 				{
-					sprintf(instrStrings[instrsDone], "%s %s%i%s, %s", mnemName, MemAddrMode?"[":"", dataOrAddr, MemAddrMode?"]":"", W?"ax":"al");
+					sprintf(stringAuxBuffer, "%s %s%i%s, %s", mnemName, MemAddrMode?"[":"", dataOrAddr, MemAddrMode?"]":"", W?"ax":"al");
 				}///                                  mne  [__] , a_
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S4oooooooW_MdSubRgm_Disp_Disp: //RM
 			{///push, pop
@@ -582,12 +593,13 @@ int main(int argc, char *argv[])
 				//Build output string
 				if(0)//modBitsVal == 0b11)
 				{
-					sprintf(instrStrings[instrsDone], "%s %s, %i", mnemName, rmName, dispVal);
+					sprintf(stringAuxBuffer, "%s %s, %i", mnemName, rmName, dispVal);
 				}
 				else
 				{
-					sprintf(instrStrings[instrsDone], "%s %s %s", mnemName, (W)?"word":"byte", rmName);
+					sprintf(stringAuxBuffer, "%s %s %s", mnemName, (W)?"word":"byte", rmName);
 				}
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S4oooooooo_MdRegRgm_Disp_Disp:
 			{///lea, lds, les
@@ -623,7 +635,8 @@ int main(int argc, char *argv[])
 				//RM name generation
 				fillRmName(rmName, rmBitsVal, modBitsVal, W, dispVal);
 				
-				sprintf(instrStrings[instrsDone], "%s %s, %s", mnemName, regName, rmName);
+				sprintf(stringAuxBuffer, "%s %s, %s", mnemName, regName, rmName);
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S2oooooooo_LABEL: //to label
 			{///jnz and friends
@@ -653,7 +666,8 @@ int main(int argc, char *argv[])
 				}
 				
 				//Build output string
-				sprintf(instrStrings[instrsDone], "%s label%i", mnemName, labelIndex);
+				sprintf(stringAuxBuffer, "%s label%i", mnemName, labelIndex);
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S4oooooooo_oooooooo_Disp_Disp:
 			{///aam, aad
@@ -663,7 +677,8 @@ int main(int argc, char *argv[])
 				DEBUG_PRINT("  %s (simple)\n", mnemName);
 				
 				//Build output string
-				sprintf(instrStrings[instrsDone], "%s", mnemName);
+				sprintf(stringAuxBuffer, "%s", mnemName);
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			case S4ooooooVW_MdSubRgm_Disp_Disp:
 			{///shl, shr, sar, rol, ror, rcl, rcr
@@ -699,7 +714,8 @@ int main(int argc, char *argv[])
 				///We still need this, albeit conditionally: W?"word":"byte"
 				
 				//Build output string
-				sprintf(instrStrings[instrsDone], "%s %s, %i", mnemName, rmName, dispVal);
+				sprintf(stringAuxBuffer, "%s %s, %i", mnemName, rmName, dispVal);
+				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
 			default:
 			{///ERROR
@@ -709,7 +725,8 @@ int main(int argc, char *argv[])
 		}
 		
 		//Loop upkeep
-		DEBUG_PRINT("  Successfully disassembled -> \"%s\" [Writing...]\n", instrStrings[instrsDone]);		
+		DEBUG_PRINT("  Successfully disassembled -> \"%s\" [Writing...]\n",
+					getIndexLL_S32(&instrStrings,instrsDone));
 		DEBUG_PRINT("  Instruction size: %i\n  ", instrSz);
 		DEBUG_printBytesIn01s(instrP, instrSz, 0); DEBUG_PRINT("\n");
 		instrP += instrSz;
@@ -747,7 +764,7 @@ int main(int argc, char *argv[])
 	fprintf(fOutP, "%s", "bits 16"); //Bit width directive counts as 0 bytes
 	for(int i=0 ; i<instrsDone ; i++)
 	{//Each iteration writes 1 instr
-		fprintf(fOutP, "\n%s", instrStrings[i]);
+		fprintf(fOutP, "\n%s", getIndexLL_S32(&instrStrings, i));
 		bytesWritten += instrSizes[i];
 		
 		if(labelsWritten < labelCount)
@@ -793,7 +810,7 @@ int main(int argc, char *argv[])
 
 
 
-void ERROR_TERMINATE(unsigned char *inBytesP,unsigned char *instrSizes,unsigned int instrsDone,FILE*fOutP,char msg[])
+void ERROR_TERMINATE(unsigned char *inBytesP,int *instrSizes,unsigned int instrsDone,FILE*fOutP,char msg[])
 {
 	printf("[%s]\n", msg);
 	printf("[%s]\n", msg);
@@ -805,6 +822,7 @@ void ERROR_TERMINATE(unsigned char *inBytesP,unsigned char *instrSizes,unsigned 
 	for(int i=0 ; i<instrsDone ; i++)
 	{
 		DEBUG_PRINT("[Instruction %i]\n", i+1);
+		DEBUG_PRINT("  %s\n  ", getIndexLL_S32(&instrStrings, i));
 		DEBUG_printBytesIn01s(inBytesP, instrSizes[i], 0);
 		DEBUG_PRINT("\n");
 		inBytesP += instrSizes[i];
@@ -819,7 +837,15 @@ void ERROR_TERMINATE(unsigned char *inBytesP,unsigned char *instrSizes,unsigned 
 	///TODO: File contents printing is broken after porting to Linux.
 	///TODO: File contents printing is broken after porting to Linux.
 	
-	printf("\n\n[Terminating...]\n");
+	printf("\n\n");
+	printf("[--------------------------]\n");
+	printf("[ ERROR_TERMINATE COMPLETE ]\n");
+	printf("[ ERROR_TERMINATE COMPLETE ]\n");
+	printf("[ ERROR_TERMINATE COMPLETE ]\n");
+	printf("[ ERROR_TERMINATE COMPLETE ]\n");
+	printf("[ ERROR_TERMINATE COMPLETE ]\n");
+	printf("[ ERROR_TERMINATE COMPLETE ]\n");
+	printf("[--------------------------]\n");
 	//exit(69);
 }
 void fillRegName(char regName[], char regBitsVal, bool W)
