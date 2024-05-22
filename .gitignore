@@ -12,6 +12,8 @@ PortableGit/
 # Ignore pdf files (So I can keep 8086 documentation handy)
 *.pdf
 
+# Jim's .asm test file(s)
+*/test.asm
 # Jim's special extension for disassembled code
 *.disasm
 

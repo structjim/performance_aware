@@ -1,17 +1,24 @@
-//////////////////////////
-// HEADER ONLY C MODULE //
-//////////////////////////
-//
-// A linked list implementation for strings with a max size of 32, including \0.
-// (Strings exceeding 32 bytes will be truncated, with null terminators forced.)
-//
-// How to use:
-// ALWAYS declare new lists with the construct_ macro, which zeroes out members.
-// ALWAYS use the derstruct_ macro on an LL before it leaves scope.
-//
+/*	========================================================================
+	//////////////////////////
+	// HEADER ONLY C MODULE //
+	//////////////////////////
+	========================================================================
+	(C) Copyright 2024 by structJim, All Rights Reserved.
+	This software is provided 'as-is', without any express or implied
+	warranty. In no event will the author(s) be held liable for any
+	damages arising from the use of this software.
+	========================================================================
+	A linked list implementation for strings with a max size of 32,
+	including null terminators. (Strings exceeding 32 bytes will be
+	truncated, with null terminators forced.)
+	========================================================================
+	How to use:
+	Declare new lists with the construct_ macro, which zeroes out members.
+	ALWAYS use the derstruct_ macro on an LL before it leaves scope.
+	========================================================================*/
+
 #ifndef hocm_list_s32
 #define hocm_list_s32
-
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
@@ -19,20 +26,31 @@
 #define construct_LinkedList_String32(listName) struct LinkedList_String32 listName = {0}
 #define destruct_LinkedList_String32(listName) emptyLL_S32(&listName)
 
-struct Node_String32
-{
+struct Node_String32{
 	char data[32];
-	struct Node_String32 *prevP;
-	struct Node_String32 *nextP;
+	struct Node_String32 *prevP, *nextP;
 };
-struct LinkedList_String32
-{
+struct LinkedList_String32{
 	int length;
-	struct Node_String32 *headP;
-	struct Node_String32 *tailP;
+	struct Node_String32 *headP, *tailP;
 };
+
+//Function reference:
+void appendLL_S32(struct LinkedList_String32 *listINP, char *stringIN);
+void prependLL_S32(struct LinkedList_String32 *listINP, char *stringIN);
+char*getIndexLL_S32(struct LinkedList_String32 *listINP, int indexIN);
+char*getTailLL_S32(struct LinkedList_String32 *listINP);
+char*getHeadLL_S32(struct LinkedList_String32 *listINP);
+bool deleteIndexLL_S32(struct LinkedList_String32 *listINP, int indexIN);
+bool insertAfterIndexLL_S32(struct LinkedList_String32 *listINP, int indexIN, char *stringIN);
+void emptyLL_S32(struct LinkedList_String32 *listINP);
+
+/*========================================================================*/
+/*========================================================================*/
+/*========================================================================*/
+
 void appendLL_S32(struct LinkedList_String32 *listINP, char *stringIN)
-{	//This is a work in progress...
+{
 	struct Node_String32 *newNodeP = malloc (sizeof(struct Node_String32));
 
 	//Copy string contents.
@@ -60,7 +78,7 @@ void appendLL_S32(struct LinkedList_String32 *listINP, char *stringIN)
 	}
 }
 void prependLL_S32(struct LinkedList_String32 *listINP, char *stringIN)
-{	//This is a work in progress...
+{
 	struct Node_String32 *newNodeP = malloc (sizeof(struct Node_String32));
 
 	//Copy string contents.
@@ -186,6 +204,6 @@ void emptyLL_S32(struct LinkedList_String32 *listINP)
 	}
 	listINP->headP = NULL;
 	listINP->tailP = NULL;
-	//All nodes freed. LL struct is stack-allocated, so no need to free manually.
+	//All nodes freed. listINP->length is now 0.
 }
 #endif

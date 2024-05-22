@@ -1,21 +1,45 @@
+/*	========================================================================
+	(C) Copyright 2024 by structJim, All Rights Reserved.
+	This software is provided 'as-is', without any express or implied
+	warranty. In no event will the author(s) be held liable for any
+	damages arising from the use of this software.
+	========================================================================
+	Disasm 8086
+	An (albeit incomplete) Intel 8086 .asm disassembler. It gets kind of
+	crazy in here. Pardon our dust! This is just for learning, so it's not
+	gonna be strictly good. This was made while following along with Casey
+	Muratori's "Performance Aware Programming" course, which is hosted at
+	https://www.ComputerEnhance.com.
+	========================================================================
+	Instructions:
+	1. Build in GCC with c99 standard.
+	2. Pass an 8086 binary file and output destination to the resulting bin.
+	3. Receive .asm file.
+	4. Profit?
+	========================================================================*/
+#define DEBUG_PRINT if(DEBUG)printf
+#define USE_BYTE false
+#define USE_WORD true //word=2bytes
 #include<stdio.h>
 #include<stdbool.h>
 #include<string.h>
 #include<time.h>
 #include"LinkedList_String32.HOCM.h"
-#define DEBUG_PRINT if(DEBUG)printf
-#define USE_BYTE false
-#define USE_WORD true //word=2bytes
 bool DEBUG=1;
 
-enum ///Formats (Compatible mnemonics are listed below each format.)
+/// opForm: This large enum is for the opForms (operation formats), which we'll
+/// use to denote the max size of an instruction, whether it has certain fields
+/// (like D, W, V, etc), and how those fields are arranged in the bits. One
+/// opForm can apear in many mnemonics (EG: mov), and one mnemonic can support
+/// many opForms.
+
+enum
 {
 //MAX size 1
 	S1oooooooo, //Pure opcode
-	///xlat, lahf, sahf, pushf, popf, aaa, daa, aas, das,
-	///cbw, cwd, ret(within segment), ret(inter-segment),
-	///int(type3), into, iret, clc, cmc, stc, cld, std, cli,
-	///sti, hlt, wait, lock
+	///xlat, lahf, sahf, pushf, popf, aaa, daa, aas, das, cbw, cwd,
+	///ret(within segment), ret(inter-segment), int(type3), into, iret, clc,
+	///cmc, stc, cld, std, cli, sti, hlt, wait, lock
 	S1oooooReg, //to:with REG
 	///XCHG, INC, DEC, push, pop
 	S1oooSrooo, //Segment register
@@ -63,7 +87,7 @@ char stringAuxBuffer[32];
 unsigned int instrsDone=0;
 unsigned int bytesDone=0;
 bool W, S, D, V, Z;
-bool MemAddrMode; //If false, dataOrAddr is immediate data.
+bool useAddrNotImme; //If false, dataOrAddr is immediate data.
 short dispVal; //For displacement (including DIRECT ACCESS)
 short dataOrAddr;
 unsigned char dataSz;
@@ -78,16 +102,14 @@ unsigned char subOpVal;
 clock_t starttime;
 char mnemName[8], regName[3], rmName[32], instrString[32];
 const char srNames[4][3] = {"es", "cs", "ss", "ds"};
-const char modMsgs[4][64]=
+const char modMsgs[4][40]=
 {
 	"  MOD: 00 (Mem Mode, no disp)\n", "  MOD: 01 (Mem Mode, 8-bit disp)\n",
 	"  MOD: 10 (Mem Mode, 16-bit disp)\n", "  MOD: 11 (Reg Mode, no disp)\n"
 };
 
 
-/// //////////////////////////////////////// ///
-/// ///               MAIN               /// ///
-/// //////////////////////////////////////// ///
+
 int main(int argc, char *argv[])
 {	
 	starttime=clock();
@@ -114,12 +136,7 @@ int main(int argc, char *argv[])
 	{
 		inBytes[i] = fgetc(fInP);
 	}
-
-	/// /// ///DEBUG manual bin override:
-	//unsigned char inBytes[2] = {0b00111101, 0b00000011}; fInSz = sizeof(inBytes);
-	/// /// ///Note that file comparison at the end of the program will always fail.
-	
-	//For iterating through instructions
+	//For iterating through input
 	unsigned char *instrP = inBytes;
 
 	//In debug mode, print all bits of bin, in 4 columns.
@@ -127,18 +144,20 @@ int main(int argc, char *argv[])
 	DEBUG_printBytesIn01s(inBytes, fInSz, 4);
 	DEBUG_PRINT("\n\n");
 		
-	//MASTER LOOP
+	//MASTER LOOP. Each iteration disassembles one instruction.
 	while(bytesDone < fInSz)
-	{///Each iteration disassembles one instruction
-
+	{
 		DEBUG_PRINT("Beginning work on instruction %i. ", instrsDone+1);
 		DEBUG_PRINT("First byte: ");
 		DEBUG_printBytesIn01s(instrP, 1, 0);
 		DEBUG_PRINT("\n");
 
 		//Set opForm, subOpVal, and mnemName
-		if(0); 
-		else if(0b11010111==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"xlat");}///PURE
+		//The supOp is just additional bits that determine the operation and mnemonic, but aren't
+		//in the first byte of the instruction. EG: 100000SW is the first byte of both ADD and SUB
+		//When moving an immediate value to R/M. Whether it's ADD or SUB is determined by the supOp in
+		//second byte, which is formatted MdSubRgM.
+		/**/ if(0b11010111==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"xlat");}///PURE
 		else if(0b10011111==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"lahf");}///PURE
 		else if(0b10011110==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"sahf");}///PURE
 		else if(0b10011100==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"pushf");}///PURE 
@@ -246,9 +265,7 @@ int main(int argc, char *argv[])
 		else if(0b10001101==instrP[0]) /*NO MASK*/ {opForm=  S4oooooooo_MdRegRgm_Disp_Disp  ;strcpy(mnemName,"lea");}
 		else if(0b11000101==instrP[0]) /*NO MASK*/ {opForm=  S4oooooooo_MdRegRgm_Disp_Disp  ;strcpy(mnemName,"lds");}
 		else if(0b11000100==instrP[0]) /*NO MASK*/ {opForm=  S4oooooooo_MdRegRgm_Disp_Disp  ;strcpy(mnemName,"les");}
-		else if(0b11010000==(instrP[0]&0b11111100))        //S4ooooooVW_MdSubRgm_Disp_Disp
-		{
-			opForm = S4ooooooVW_MdSubRgm_Disp_Disp;
+		else if(0b11010000==(instrP[0]&0b11111100)){opForm=  S4ooooooVW_MdSubRgm_Disp_Disp;
 			subOpVal = (instrP[1]&0b00111000)>>3;
 			switch(subOpVal)
 			{
@@ -283,8 +300,10 @@ int main(int argc, char *argv[])
 			}
 		}
 		else{ERROR_TERMINATE(inBytes, instrSizes, instrsDone, fOutP, "ERROR SELECTING MNEMONIC."); return 1;}
-	
-		//Select disassembly logic
+
+
+		
+		//We know the opForm and the mnemonic name. Time to select the logic, and build the assembly code!
 		switch(opForm)
 		{
 			case S1oooooooo: //PURE
@@ -489,7 +508,7 @@ int main(int argc, char *argv[])
 				
 				//DATA
 				dataOrAddr = valFromUCharP(instrP+2+dispSz, (dataSz>1));
-				MemAddrMode = false;
+				useAddrNotImme = false;
 				
 				//RM name generation
 				fillRmName(rmName, rmBitsVal, modBitsVal, W, dispVal);
@@ -543,16 +562,16 @@ int main(int argc, char *argv[])
 				
 				//DATA or ADDR
 				dataOrAddr = valFromUCharP(instrP+1, (dataSz>1));
-				MemAddrMode = (0b10100000==(instrP[0]&11111100));//101000xw
+				useAddrNotImme = (0b10100000==(instrP[0]&11111100));//101000xw
 				
 				//Build output string
 				if(D) //Mem address mode needs [brackets]. Use AX if W, else AL if !W.
 				{
-					sprintf(stringAuxBuffer, "%s %s, %s%i%s", mnemName, W?"ax":"al", MemAddrMode?"[":"", dataOrAddr, MemAddrMode?"]":"");
+					sprintf(stringAuxBuffer, "%s %s, %s%i%s", mnemName, W?"ax":"al", useAddrNotImme?"[":"", dataOrAddr, useAddrNotImme?"]":"");
 				}///                                  mne a_,  [__]
 				else
 				{
-					sprintf(stringAuxBuffer, "%s %s%i%s, %s", mnemName, MemAddrMode?"[":"", dataOrAddr, MemAddrMode?"]":"", W?"ax":"al");
+					sprintf(stringAuxBuffer, "%s %s%i%s, %s", mnemName, useAddrNotImme?"[":"", dataOrAddr, useAddrNotImme?"]":"", W?"ax":"al");
 				}///                                  mne  [__] , a_
 				appendLL_S32(&instrStrings, stringAuxBuffer);
 			}break;
@@ -729,7 +748,6 @@ int main(int argc, char *argv[])
 		DEBUG_printBytesIn01s(instrP, instrSz, 0); DEBUG_PRINT("\n");
 		instrP += instrSz;
 		bytesDone += instrSz;
-		//instrLengths[instrsDone] = strlen(instrString);
 		instrSizes[instrsDone++] = instrSz;
 		DEBUG_PRINT("  Bytes processed: %i/%i\n", (int)(instrP-inBytes), fInSz);
 	}//End of disassembling
@@ -757,8 +775,8 @@ int main(int argc, char *argv[])
 	}
 	
 	//Write to output file
-	unsigned  int bytesWritten = 0;
-	unsigned  int labelsWritten = 0;
+	unsigned int bytesWritten = 0;
+	unsigned int labelsWritten = 0;
 	fprintf(fOutP, "%s", "bits 16"); //Bit width directive counts as 0 bytes
 	for(int i=0 ; i<instrsDone ; i++)
 	{//Each iteration writes 1 instr
@@ -791,8 +809,6 @@ int main(int argc, char *argv[])
 	//printf("\n\n::: CONTENTS OF OUTPUT FILE :::\n");
 	//printf("%s", (char[]*)*fOutP);
 	///TODO: This is broken after porting to Linux.
-	///TODO: This is broken after porting to Linux.
-	///TODO: This is broken after porting to Linux.
 
 	//Done.
 	fclose(fInP);
@@ -800,8 +816,7 @@ int main(int argc, char *argv[])
 	//system("pause");
 	//DEBUG_PRINT("\n\nExecution time: %d(ms?)\n", clock()-starttime);
 	//TODO: Execution time printing is broken ever since porting to Linux.
-	//TODO: Execution time printing is broken ever since porting to Linux.
-	//TODO: Execution time printing is broken ever since porting to Linux.
+	destruct_LinkedList_String32(instrStrings);
 	return 0;
 }
 //END MAIN
@@ -831,8 +846,6 @@ void ERROR_TERMINATE(unsigned char *inBytesP,int *instrSizes,unsigned int instrs
 	//Print output file contents to stdout
 	//printf("\n\n::: CONTENTS OF OUTPUT FILE :::\n");
 	//printf("%s", *fOutP);
-	///TODO: File contents printing is broken after porting to Linux.
-	///TODO: File contents printing is broken after porting to Linux.
 	///TODO: File contents printing is broken after porting to Linux.
 	
 	printf("\n\n");
