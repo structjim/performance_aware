@@ -13,37 +13,41 @@
 #Delete all output files from previous runs.
 rm output/*
 
+echo "Argument 1 for bar is: "
+echo $1
+echo " "
+
 #C source file name, sans extension
-disassembler_name="disasm8086"
+disassembler_name="remake_disasm8086"
 #inASM is the .asm passed to this .bat as an argument
 asmIN=$1
 
-echo "[[[ASSEMBLE ARGUMENT .ASM FILE WITH NASM...]]]"
-#[output file 1] NASM assembles argument .asm to .bin
+#[1] NASM assembles argument .asm to .bin
 nasm $asmIN -o output/1_nasm_assembled.bin
 
-echo "[[[COMPILE DISASSEMBLER WITH GCC...]]]"
 #Compile the disassembler
 gcc $disassembler_name.c -std=c99 -o output/$disassembler_name.bin
-
-echo "[[[DISASSEMBLE NASM OUTPUT WITH DISASSEMBLER...]]]"
-#[output file 2] Disassemble (Params are input bin, output asm)
+#[2] Disassemble (Params are input bin, output asm)
 ./output/$disassembler_name.bin output/1_nasm_assembled.bin output/2_disasm8086.disasm
 
-echo "[[[RE-ASSEMBLE DISASSEMBLER OUTPUT WITH NASM...]]]"
-#[output file 3] NASM RE-assembles our .disasm code
+echo .
+echo [Re-assembling for binary comparison...]
+echo .
+
+#[3] NASM RE-assembles our .disasm code
 nasm output/2_disasm8086.disasm -o output/3_nasm_REassembled.bin
 
-echo "[[[DIFFING ASSEMBLED BINARIES...]]]"
 #Compare
-echo "/\\Comparing original bin with re-assembled bin..."
+echo /\\Comparing original bin with re-assembled bin...
 diff output/1_nasm_assembled.bin output/3_nasm_REassembled.bin
-echo "\\/Comparison over."
+echo \\/Comparison over.
 
 #Clean up output
-echo "Cleaning up output files..."
+echo .
+echo Cleaning up output files...
 #mv output/* output_old
 #mv $disassembler_name.bin output_old
-echo "done"
+echo .
+echo done
 
 #END

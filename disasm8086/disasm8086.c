@@ -17,6 +17,7 @@
 	3. Receive .asm file.
 	4. Profit?
 	========================================================================*/
+
 #define DEBUG_PRINT if(DEBUG)printf
 #define USE_BYTE false
 #define USE_WORD true //word=2bytes
@@ -29,7 +30,7 @@ bool DEBUG=1;
 
 /// opForm: This large enum is for the opForms (operation formats), which we'll
 /// use to denote the max size of an instruction, whether it has certain fields
-/// (like D, W, V, etc), and how those fields are arranged in the bits. One
+/// (like D, W, S, V, reg) and how those fields are arranged in the bits. One
 /// opForm can apear in many mnemonics (EG: mov), and one mnemonic can support
 /// many opForms.
 
@@ -82,8 +83,8 @@ void fillRmName(char rmName[], char rmBitsVal, char modBitsVal, bool W, short di
 void DEBUG_printBytesIn01s(unsigned char *startP, int size, int columns);
 void ERROR_TERMINATE(unsigned char *inBytesP,int *instrSizes,unsigned int instrsDone,FILE*fOutP,char msg[]);
 
-construct_LinkedList_String32(instrStrings);
-char stringAuxBuffer[32];
+construct_LL_S32(instrStrings);
+char stringAuxBuffer[64];
 unsigned int instrsDone=0;
 unsigned int bytesDone=0;
 bool W, S, D, V, Z;
@@ -139,9 +140,9 @@ int main(int argc, char *argv[])
 	//For iterating through input
 	unsigned char *instrP = inBytes;
 
-	//In debug mode, print all bits of bin, in 4 columns.
+	//In debug mode, print all bits of bin, in 8 columns.
 	DEBUG_PRINT("\n\"%s\" bin size is %i. Contents:\n\n", argv[1], fInSz);
-	DEBUG_printBytesIn01s(inBytes, fInSz, 4);
+	DEBUG_printBytesIn01s(inBytes, fInSz, 8);
 	DEBUG_PRINT("\n\n");
 		
 	//MASTER LOOP. Each iteration disassembles one instruction.
@@ -155,8 +156,8 @@ int main(int argc, char *argv[])
 		//Set opForm, subOpVal, and mnemName
 		//The supOp is just additional bits that determine the operation and mnemonic, but aren't
 		//in the first byte of the instruction. EG: 100000SW is the first byte of both ADD and SUB
-		//When moving an immediate value to R/M. Whether it's ADD or SUB is determined by the supOp in
-		//second byte, which is formatted MdSubRgM.
+		//when dealing with an immediate value and R/M. Whether it's ADD or SUB is determined by
+		///the subOp in the second byte, which is formatted MdSubRgM.
 		/**/ if(0b11010111==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"xlat");}///PURE
 		else if(0b10011111==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"lahf");}///PURE
 		else if(0b10011110==instrP[0]) /*NO MASK*/ {opForm= S1oooooooo ;strcpy(mnemName,"sahf");}///PURE
@@ -458,11 +459,11 @@ int main(int argc, char *argv[])
 				
 				switch (instrP[0] & 0b11111110)
 				{
-					//Cases here don't have/don't care about S for data size.
 					case 0b11000110: ///mov
 					case 0b11110110: ///test
 					case 0b10000000: ///or, sub
 					{
+						//These cases don't have S/don't care about S for data size.
 						dataSz = 1 + (char)(W);
 					}break;
 					default:
@@ -478,7 +479,6 @@ int main(int argc, char *argv[])
 				else
 				{
 					//"and" doesn't have s, but may as well.
-					
 				}
 				
 				instrSz = 2 + dispSz + dataSz;
@@ -816,7 +816,7 @@ int main(int argc, char *argv[])
 	//system("pause");
 	//DEBUG_PRINT("\n\nExecution time: %d(ms?)\n", clock()-starttime);
 	//TODO: Execution time printing is broken ever since porting to Linux.
-	destruct_LinkedList_String32(instrStrings);
+	destruct_LL_S32(instrStrings);
 	return 0;
 }
 //END MAIN
