@@ -28,6 +28,7 @@
 #include"LinkedList_String32.HOCM.h"
 bool DEBUG=1;
 
+char *decodeInstruction(unsigned char* atP);
 short valFromUCharP(unsigned char *charP, bool W);
 void fillRegName(char regName[], char regBitsVal, bool W);
 void fillRmName(char rmName[], char rmBitsVal, char modBitsVal, bool W, short disp);
@@ -36,18 +37,19 @@ void DEBUG_printBytesIn01s(unsigned char *startP, int size, int columns);
 construct_LL_S32(instrStrings);
 char instrStringAuxBuffer[32];
 FILE *fInP, *fOutP;
-unsigned int fInSz, bytesDone=0;
+unsigned int fInSz, bytesDone=0, instrsDone=0;
 unsigned char *instrP;
 //TODO: Might need to think about max int value eventually.
 
 //Operands
-enum{NO_OPERAND, OPERAND_REG_BIT11, OPERAND_RM_BIT14, OPERAND_IMM};
+enum{OPERAND_NONE, OPERAND_REG_BIT11, OPERAND_RM_BIT14, OPERAND_IMM};
 unsigned char operandTypes[2];
 char operandStrings[2][8];
 //Operation types:
 char *mnemName;
-unsigned char opType, modBitsValue, regBitsValue, rmBitsValue, srBitsVal;
+unsigned char opType, instrSz=0, modBitsValue, regBitsValue, rmBitsValue, srBitsVal;
 enum{MOV_REG_RM};
+//Fields
 bool D, W, V, S, hasWBit8, hasDBit7;
 //Remember: D means reg is destination!
 
@@ -77,51 +79,55 @@ int main(int argc, char *argv[])
 	//For iterating through input
 	instrP = inBytes;
 	
-	//Print binary, in 4 columns.
-	DEBUG_PRINT("\n\"%s\" bin size is %i. Contents:\n\n", argv[1], fInSz);
-	DEBUG_printBytesIn01s(inBytes, fInSz, 4);
-	DEBUG_PRINT("\n\n");
+	//Print binary, in 8 columns.
+	DEBUG_PRINT("\n\"%s\" bin size is %i. Contents:\n", argv[1], fInSz);
+	DEBUG_printBytesIn01s(inBytes, fInSz, 8);
+	DEBUG_PRINT("\nBegin decode...\n\n");
 	
 	//Master loop. (One iteration decodes one instruction.)
 	while(bytesDone < fInSz){
-		printf("\nThe while started ok.\n");
+		printf("New first byte is: ");
+		DEBUG_printBytesIn01s(instrP, 1, 1);
+		printf("\n");
 		//6 leading opcode bits.
 		switch(instrP[0]>>2)
 		{
-			case 0b100010:
-				opType = MOV_REG_RM; //2~4
-				mnemName = "mov";
-				hasDBit7 = hasWBit8 = true;
-				modBitsValue = (instrP[1] & 0b11000000)>>6;
-				//D means reg is destination (AKA first operand).
-				operandTypes[!D] = OPERAND_REG_BIT11;
-				operandTypes[D] = OPERAND_RM_BIT14;
-				break;
-			default:
-				opType = 69;
+		case 0b100010:
+			opType = MOV_REG_RM; //2~4
+			mnemName = "mov";
+			hasDBit7 = hasWBit8 = true;
+			D = instrP[0] & 0b00000010;
+			W = instrP[0] & 0b00000001;
+			modBitsValue = (instrP[1] & 0b11000000)>>6;
+			instrSz = 2 + (modBitsValue % 3);
+			operandTypes[!D] = OPERAND_REG_BIT11; //If D, reg is dest(first)
+			operandTypes[D] = OPERAND_RM_BIT14;
+			break;
+		case 0b100110: //10011011
+			mnemName = "wait";
+			operandTypes[0] = operandTypes[1] = 0;
+			instrSz = 1;
+			break;
 		}
 
-		//Pre-string-building upkeep
-		if(hasDBit7){
-		}
+		//TODO: Hard coding operands for now.
+		strcpy(operandStrings[0], "cx");
+		strcpy(operandStrings[1], "bx");
 		
 		//Build instruction string.
+		sprintf(instrStringAuxBuffer, "%s", mnemName);//Mnemonic
 		if(operandTypes[0] && operandTypes[1])
-		{	//Two operands
-			sprintf(instrStringAuxBuffer, "%s %s, %s", mnemName, operandStrings[0], operandStrings[1]);
+		{
+			sprintf(instrStringAuxBuffer, "%s %s, %s", instrStringAuxBuffer, operandStrings[0], operandStrings[1]);
 		}
-		else if(operandTypes[0] && !operandTypes[1])
-		{	//One operand
-		}
-		else if(!operandTypes[0] && !operandTypes[1])
-		{	//No operands
-		}
-		else{/*ERROR*/}
 		
 		appendLL_S32(&instrStrings, instrStringAuxBuffer);
-		printf("%s\n", getIndexLL_S32(&instrStrings, 0));
-		bytesDone+=2;
+		printf("Decoded instruction: \"%s\"\n\n", getIndexLL_S32(&instrStrings, instrsDone++));
+		bytesDone += instrSz;
+		instrP += instrSz;
 	}
+	//TODO: Note that we're just printing the decode for now, and not writing to a file.
+	//NASM is gonna freak out for now, but as long as the decode prints are ok, we're ok.
 	
 /*
 	int instrSizes[fInSz];
@@ -167,7 +173,27 @@ int main(int argc, char *argv[])
 
 
 
-
+char *decodeInstruction(unsigned char *atP)
+{	//Max 8 bytes.
+	//I'm playing around with refactoring the actual decode,
+	//But this will have to wait for another day.
+/*
+	switch(atP[0]>>2)
+	{	//6 leading opcode bits...
+		case 0b100010:
+			opType = MOV_REG_RM; //2~4
+			mnemName = "mov";
+			hasDBit7 = hasWBit8 = true;
+			modBitsValue = (instrP[1] & 0b11000000)>>6;
+			//D means reg is destination (AKA first operand).
+			operandTypes[!D] = OPERAND_REG_BIT11;
+			operandTypes[D] = OPERAND_RM_BIT14;
+			break;
+		default:
+			opType = 69;
+	}
+*/
+}
 void fillRegName(char regName[], char regBitsVal, bool W)
 {
 	//                W? 01 R/M
@@ -179,15 +205,14 @@ void fillRegName(char regName[], char regBitsVal, bool W)
 		'a', 'c', 'd', 'b', 's', 'b', 's', 'd',   // w
 		'x', 'x', 'x', 'x', 'p', 'p', 'i', 'i'
 	};
-	
 	regName[0] = regNameMatrix[(char)W][0][regBitsVal];
 	regName[1] = regNameMatrix[(char)W][1][regBitsVal];
 	regName[2] = '\0';
-	
 	DEBUG_PRINT("  REG name: %s\n", regName);
 }
 void fillRmName(char rmName[], char rmBitsVal, char modBitsVal, bool W, short dispDirectAccess)
 {
+	//TODO: I forget what dispDirectAccess is for. Is it disp, just in case we have DA?
 	if(modBitsVal == 0b11)
 	{
 		fillRegName(rmName, rmBitsVal, W);
@@ -203,7 +228,7 @@ void fillRmName(char rmName[], char rmBitsVal, char modBitsVal, bool W, short di
 		//We know we aren't MOD=11, and we aren't the special DIRECT ADDRESS case.
 		//Besides that, this block is MOD agnostic.
 		//See table 4.10 on page 4.20.
-		/**/ if (rmBitsVal==0b000){strcpy(rmName, "[bx + si");}
+		/**/ if(rmBitsVal==0b000){strcpy(rmName, "[bx + si");}
 		else if(rmBitsVal==0b001){strcpy(rmName, "[bx + di");}
 		else if(rmBitsVal==0b010){strcpy(rmName, "[bp + si");}
 		else if(rmBitsVal==0b011){strcpy(rmName, "[bp + di");}
@@ -211,7 +236,7 @@ void fillRmName(char rmName[], char rmBitsVal, char modBitsVal, bool W, short di
 		else if(rmBitsVal==0b101){strcpy(rmName, "[di");}
 		else if(rmBitsVal==0b110){strcpy(rmName, "[bp");}
 		else if(rmBitsVal==0b111){strcpy(rmName, "[bx");}
-		else{printf("ERROR DISASSEMBLING R/M");}
+		else {printf("ERROR DISASSEMBLING R/M");}
 		
 		//But we need to CONCATENATE a little more!
 		//Just the disp for MOD=01 and MOD=10, then final bracket
