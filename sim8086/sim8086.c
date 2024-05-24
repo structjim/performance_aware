@@ -4,18 +4,19 @@
 	warranty. In no event will the author(s) be held liable for any
 	damages arising from the use of this software.
 	========================================================================
-	Disasm 8086
-	An (albeit incomplete) Intel 8086 .asm disassembler. It gets kind of
-	crazy in here. Pardon our dust! This is just for learning, so it's not
-	gonna be strictly good. This was made while following along with Casey
-	Muratori's "Performance Aware Programming" course, which is hosted at
-	https://www.ComputerEnhance.com.
+	Sim8086
+	A (pretty minimal, let's be real) 8086 simulator. One little, two
+	little, three little endians! This was made while following along with
+	Casey Muratori's "Performance Aware Programming" course, which is hosted
+	at https://www.ComputerEnhance.com.
 	========================================================================
-	Instructions:
+	Instructions: Just use the BAR script and give it a .asm file. Or...
 	1. Build in GCC with c99 standard.
-	2. Pass an 8086 binary file and output destination to the resulting bin.
-	3. Receive .asm file.
-	4. Profit?
+	2. Pass an 8086 binary.
+	3. (Hopefully) see some stuff happen.
+	4. TODO: Get a .asm file back, maybe? I mean, this would be a great time
+	to rewrite the disassembler. But we'll just have to wait and see if that
+	materalizes...
 	========================================================================*/
 
 #define DEBUG_PRINT if(DEBUG)printf
