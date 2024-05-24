@@ -25,7 +25,7 @@
 #include<stdbool.h>
 #include<string.h>
 #include<time.h>
-#include"LinkedList_String32.HOCM.h"
+#include"../HOCM/LinkedList_String32.HOCM.h"
 bool DEBUG=1;
 
 /// opForm: This large enum is for the opForms (operation formats), which we'll

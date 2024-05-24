@@ -4,6 +4,9 @@
 ## BUILD AND RUN ##
 ###################
 
+# Note this depends on having NASM installed. (sudo apt install nasm)
+
+# How to use:
 # This assembles a .asm file with NASM,
 # builds the disassembler from C source,
 # uses it to disassemble the NASM output,
@@ -15,7 +18,7 @@ rm output/*
 
 #C source file name, sans extension
 disassembler_name="disasm8086"
-#inASM is the .asm passed to this .bat as an argument
+#asmIN is the .asm passed to this script as an argument
 asmIN=$1
 
 echo "[[[ASSEMBLE ARGUMENT .ASM FILE WITH NASM...]]]"
@@ -40,10 +43,6 @@ echo "/\\Comparing original bin with re-assembled bin..."
 diff output/1_nasm_assembled.bin output/3_nasm_REassembled.bin
 echo "\\/Comparison over."
 
-#Clean up output
-echo "Cleaning up output files..."
-#mv output/* output_old
-#mv $disassembler_name.bin output_old
 echo "done"
 
 #END
