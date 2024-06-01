@@ -29,16 +29,23 @@
 #include"../HOCM/JimsTypedefs.HOCM.h"
 bool DEBUG=1;
 
-void DEBUG_printBytesIn01s(u1 *startP, int size, int columns);
-void printAllRegContents(u1 *reg_raw_bitsIN);
-u1 *populateOperandString(char *stringPIN, Instr8086 *instructionPIN, u1 operandIndex);
-u1 *getOperandP(Instr8086 *instructionPIN, u1 operandIndex);
-u1 reg_raw_bits[20] = {0};//Simulation registers
-//0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
-//AL AH BL BH CL CH DL DH SP SP BP BP SI SI DI DI FLAGS IP IP
+const u8 FLAG_MASK_ZERO = 1<<7;
+const u8 FLAG_MASK_PARITY = 1<<6;
+const u8 FLAG_MASK_SIGN = 1<<5;
 
-u1 *flagsP = reg_raw_bits+16, *ipP = reg_raw_bits+18;
-u1 *registerPointers[16] =
+void setZeroFlag_vw(u8 *flagsPIN, void *valueIN, bool wIN);
+void DEBUG_printBytesIn01s(u8 *startP, int size, int columns);
+void printAllRegContents(u8 *reg_raw_bitsIN);
+void populateOperandString(char *stringPIN, Instr8086 *instructionPIN, u8 operandIndex);
+u8 *getOperandP(Instr8086 *instructionPIN, u8 operandIndex);
+u8 reg_raw_bits[20] = {0};//Simulation registers
+// 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
+// AL AH BL BH CL CH DL DH SP SP BP BP SI SI DI DI FLAGS IP IP
+
+u8 *flagsP = reg_raw_bits+16, *ipP = reg_raw_bits+18;
+//FLAGS bits: Zero, Parity, Sign, Overflow, AF, ...
+
+u8 *registerPointers[16] =
 {
 	//Pointers to raw bits where the registers live.
 	//Arranged to have incices like table on page 4-20.
@@ -52,7 +59,7 @@ u1 *registerPointers[16] =
 	/*BH*/reg_raw_bits+3,    /*DI*/reg_raw_bits+14
 };
 char registerNames[16][3]=
-{//Use a regCode4 as first argument.
+{//Use a regW4, aka (reg<<1)|W,  as first argument.
 	"al", "ax",
 	"cl", "cx",
 	"dl", "dx",
@@ -63,12 +70,12 @@ char registerNames[16][3]=
 	"bh", "di"
 };
 Instr8086 *instructionDataP;
-u1 regCode4a; //Uses (reg<<1)|W. See table on p. 4-20
-u1 regCode4b; //Uses (reg<<1)|W. See table on p. 4-20
+u8 regW4a; //Uses (reg<<1)|W, See table on p. 4-20
+u8 regW4b; //Uses (reg<<1)|W. See table on p. 4-20
 bool W, D;
-u2 immediateValue;
+u16 immediateValue;
 
-u1 instrSz;
+u8 instrSz;
 unsigned int instrsDone=0;
 unsigned int bytesDone=0;
 clock_t starttime;
@@ -82,66 +89,120 @@ int main(int argc, char *argv[])
 	fseek(fInP, 0L, SEEK_END); //Set file position to end
 	int fInSz = ftell(fInP); //Store position (file size)
 	fseek(fInP, 0L, SEEK_SET);//Return to start of file
-	u1 inBytes[fInSz];
+	u8 inBytes[fInSz];
 	for(int i=0 ; i<fInSz ; i++)
 	{
 		inBytes[i] = fgetc(fInP);
 	}
 	fclose(fInP);
-	u1 *placeInBinary = inBytes;
-	//Labels for .asm
-	//unsigned int labelCount=0;
-	//unsigned int labelIndex;
-	//bool labelExists;
-	//unsigned int labelIndices[fInSz];
+	u8 *placeInBinary = inBytes;
 
 	//In debug mode, print all bits of bin, in 8 columns.
 	DEBUG_PRINT("\n\"%s\" binary size is %i.\nRaw binary contents:\n\n", argv[1], fInSz);
-	DEBUG_printBytesIn01s((u1*)fInP, fInSz, 8);
+	DEBUG_printBytesIn01s((u8*)fInP, fInSz, 8);
 	DEBUG_PRINT("\n\n");
 
 	//Initial register print
-	printf("\nStarting memory:\n\n");
+	printf("Starting memory:\n\n");
 	printAllRegContents(reg_raw_bits);
 		
 	//MASTER LOOP. Each iteration disassembles one instruction.
 	while(bytesDone < fInSz)
 	{
+		u8 *destP, *sourceP;
+		char opStringsPrintFun[2][32];
+
+		//Reset zero flag.
+		*flagsP = (*flagsP & ~FLAG_MASK_ZERO);
+		
+		//Decode instruction into struct
 		decodeBinaryAndPopulateInstruction(instructionDataP, placeInBinary);
 		
-		//Choose simulation behavior
+		//Select and execute simulation behavior
 		switch(instructionDataP->mnemonicType)
 		{
 		case MNEM_MOV:
-			//Get pointers to the values we'll be operating on.
-			u1 *destP = getOperandP(instructionDataP, 0);
-			u1 *sourceP = getOperandP(instructionDataP, 1);;
+			//Get pointers to operand values.
+			destP = getOperandP(instructionDataP, 0);
+			sourceP = getOperandP(instructionDataP, 1);;
 			//Operate!
 			if(instructionDataP->W)
-			{
-				//Word mov.
-				*(u2*)destP = *(u2*)sourceP;
+			{	//Word
+				*(s16*)destP = *(s16*)sourceP;
 			}
 			else
-			{
-				//Byte mov.
+			{	//Byte
 				*destP = *sourceP;
 			}
-			char opStringsPrintFun[2][32];
+			//Print
 			populateOperandString(opStringsPrintFun[0], instructionDataP, 0);
 			populateOperandString(opStringsPrintFun[1], instructionDataP, 1);
-			printf
-			(
-				"Below is register contents after operation: mov %s, %s\n\n",
-				opStringsPrintFun[0],
-				opStringsPrintFun[1]
-			);
+			printf("Below is register contents after operation: mov %s, %s ",
+				   opStringsPrintFun[0], opStringsPrintFun[1]);
+			printf("(Size: %i)\n", instructionDataP->instrSize);
+			printf("Binary: ");
+			DEBUG_printBytesIn01s(placeInBinary, instructionDataP->instrSize, 8);
+			printf("\n\n");
 			break;
+		case MNEM_ADD:
+			//Get pointers to operand values.
+			destP = getOperandP(instructionDataP, 0);
+			sourceP = getOperandP(instructionDataP, 1);
+			//Operate!
+			if(instructionDataP->W)
+			{	//Word
+				*(s16*)destP += *(s16*)sourceP;
+				setZeroFlag_vw(flagsP, destP, instructionDataP->W);
+			}
+			else
+			{	//Byte
+				*destP += *sourceP;
+				setZeroFlag_vw(flagsP, destP, instructionDataP->W);
+			}
+			//Print
+			populateOperandString(opStringsPrintFun[0], instructionDataP, 0);
+			populateOperandString(opStringsPrintFun[1], instructionDataP, 1);
+			printf("Below is register contents after operation: add %s, %s ",
+				   opStringsPrintFun[0], opStringsPrintFun[1]);
+			printf("(Size: %i)\n", instructionDataP->instrSize);
+			printf("Binary: ");
+			DEBUG_printBytesIn01s(placeInBinary, instructionDataP->instrSize, 8);
+			printf("\n\n");
+			break;
+		case MNEM_SUB:
+			//Get pointers to operand values.
+			destP = getOperandP(instructionDataP, 0);
+			sourceP = getOperandP(instructionDataP, 1);;
+			//Operate!
+			if(instructionDataP->W)
+			{	//Word
+				*(s16*)destP -= *(s16*)sourceP;
+				setZeroFlag_vw(flagsP, destP, instructionDataP->W);
+			}
+			else
+			{	//Byte
+				*destP -= *sourceP;
+				setZeroFlag_vw(flagsP, destP, instructionDataP->W);
+			}
+			//Print
+			populateOperandString(opStringsPrintFun[0], instructionDataP, 0);
+			populateOperandString(opStringsPrintFun[1], instructionDataP, 1);
+			printf("Below is register contents after operation: sub %s, %s ",
+				   opStringsPrintFun[0], opStringsPrintFun[1]);
+			printf("(Size: %i)\n", instructionDataP->instrSize);
+			printf("Binary: ");
+			DEBUG_printBytesIn01s(placeInBinary, instructionDataP->instrSize, 8);
+			printf("\n\n");
+			break;
+		default:
+			printf("[[[SIMULATION ERROR! Next 6 bytes on instruction stream:]]]\n   ");
+			DEBUG_printBytesIn01s(placeInBinary, 6, 0);
+			printf("\n\n");
 		}
 		printAllRegContents(reg_raw_bits);
 		bytesDone += instructionDataP->instrSize;
 		placeInBinary += instructionDataP->instrSize;
-	}//End of disassembling
+	}//End of decoding and simulation
 	printf("\n");
 /*	
 	//Write to output file
@@ -179,18 +240,72 @@ int main(int argc, char *argv[])
 	return 0;
 }//END MAIN
 
-void printAllRegContents(u1 *reg_raw_bitsIN)
+void setZeroFlag_vw(u8 *flagsPIN, void *valueIN, bool wIN)
 {
-	DEBUG_PRINT("AL       AH       BL       BH       CL       CH       DL       DH\n");
+	if(wIN)
+	{	//Word
+		if(*(s16*)valueIN)
+		{	//Not zero
+			*flagsPIN = *flagsPIN & 0b01111111;
+		}
+		else
+		{	//Zero
+			*flagsPIN = *flagsPIN | 0b10000000;
+		}
+	}
+	else
+	{	//Byte
+		if((*(u8*)valueIN))
+		{	//Not zero
+			*flagsPIN = *flagsPIN & 0b01111111;
+		}
+		else
+		{	//Zero
+			*flagsPIN = *flagsPIN | 0b10000000;
+		}
+	}
+}
+void printAllRegContents(u8 *reg_raw_bitsIN)
+{
+	DEBUG_PRINT("  ");
+	
+	//First, print 16-bit reg. (AX, BX, CX, DX)
+	for(u8 i=0 ; i<4 ; i++)
+	{
+		DEBUG_PRINT("%cX         0x%04x ", 'A'+i, *(u16*)(reg_raw_bitsIN+i+i));
+	}
+	DEBUG_PRINT("\n");
+
+	DEBUG_PRINT("  ");
+	
+	//Print 8-bit registers (AL, AH, BL, BH, CL, CH, DL, DH)
+	for(u8 i=0 ; i<8 ; i++)
+	{
+		DEBUG_PRINT("%c%c  0x%02x ", 'A'+(i/2), i%2?'H':'L', *(u8*)(reg_raw_bitsIN+i));
+	}	
+	DEBUG_PRINT("\n  ");
 	DEBUG_printBytesIn01s(reg_raw_bitsIN, 8, 8);
-	DEBUG_PRINT("SP                BP                SI                DI\n");
+	DEBUG_PRINT("\n");
+
+	DEBUG_PRINT("  ");
+	
+	//Print the other 16-bit reg. (SP, BP, SI, DI, FLAGS, IP)
+	char *labels[4] = {"SP", "BP", "SI", "DI"};
+	for(u8 i=0 ; i<4 ; i++)
+	{
+		DEBUG_PRINT("%s         0x%04x ", labels[i], *(u16*)(reg_raw_bitsIN+i+i));
+	}
+	DEBUG_PRINT("\n  ");
 	DEBUG_printBytesIn01s(reg_raw_bitsIN+8, 8, 8);
-	printf("FLAGS             IP\n");
+	DEBUG_PRINT("\n");
+
+	//The other two things (FLAGS and IP)
+	DEBUG_PRINT("  FLAGS      0x%04x IP         0x%04x\n  ", *(u16*)flagsP, *(u16*)ipP);
 	DEBUG_printBytesIn01s(flagsP, 2, 0);
 	DEBUG_printBytesIn01s(ipP, 2, 0);
 	DEBUG_PRINT("\n\n");
 }
-void DEBUG_printBytesIn01s(u1 *startP, int size, int columns)
+void DEBUG_printBytesIn01s(u8 *startP, int size, int columns)
 {
 	for(int i=0 ; i<size ; i++)
 	{
@@ -208,15 +323,15 @@ void DEBUG_printBytesIn01s(u1 *startP, int size, int columns)
 		}
 	}
 }
-u1 *getOperandP(Instr8086 *instructionPIN, u1 operandIndex)
+u8 *getOperandP(Instr8086 *instructionPIN, u8 operandIndex)
 {
 	//Note: Depends on global registerPointers array.
 	bool W = instructionPIN->W;
-	u1 registerIndex;
+	u8 registerIndex;
 	switch(instructionPIN->operandTypes[operandIndex])
 	{
 	case OPERAND_TYPE_IMMEDITATE:
-		return (u1*)&instructionPIN->operandValues[operandIndex];
+		return (u8*)&instructionPIN->operandValues[operandIndex];
 	case OPERAND_TYPE_REG:
 		registerIndex = (instructionPIN->operandValues[operandIndex] << 1) | W;
 		return registerPointers[registerIndex];
@@ -224,21 +339,25 @@ u1 *getOperandP(Instr8086 *instructionPIN, u1 operandIndex)
 		registerIndex = (instructionPIN->operandValues[operandIndex] << 1) | W;
 		return registerPointers[registerIndex];
 		//TODO: We can't do memory yet!
+	default:
+		printf("[[[ERROR SELECTING OPERAND TYPE IN getOperandP function!]]]\n");
+		printf("[[[ERROR SELECTING OPERAND TYPE IN getOperandP function!]]]\n");
+		printf("[[[ERROR SELECTING OPERAND TYPE IN getOperandP function!]]]\n\n");
+		return NULL;
 	}
 }
-u1 *populateOperandString(char *stringPIN, Instr8086 *instructionPIN, u1 operandIndex)
+void populateOperandString(char *stringPIN, Instr8086 *instructionPIN, u8 operandIndex)
 {
 	//Note: Depends on global registerNames array.
-	char stringOUT[32];
 	bool W = instructionPIN->W;
-	u1 registerIndex;
-	u2 *immP; //Points at instr's immediate value
+	u8 registerIndex;
+	s16 *immediateValueP; //Points at instr's immediate value
 	switch(instructionPIN->operandTypes[operandIndex])
 	{
 	case OPERAND_TYPE_IMMEDITATE:
-		u2 valueOUT;
-		immP = &instructionPIN->operandValues[operandIndex];
-		valueOUT = W ? *(u2*)immP : *(u1*)immP;
+		s16 valueOUT;
+		immediateValueP = &(instructionPIN->operandValues[operandIndex]);
+		valueOUT = W ? *(s16*)immediateValueP : *(u8*)immediateValueP;
 		sprintf(stringPIN, "%i", valueOUT);
 		break;
 	case OPERAND_TYPE_REG:

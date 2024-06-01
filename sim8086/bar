@@ -14,6 +14,7 @@
 # with NASM will be simulated, with debug logs.
 
 #Delete all output files from previous runs.
+mkdir -p output
 rm output/*
 
 #C source file name, sans extension
@@ -27,7 +28,7 @@ nasm $asmIN -o output/1_nasm_assembled.bin
 
 echo "[[[COMPILE 8086 SIMULATOR WITH GCC...]]]"
 #Compile the simulator
-gcc $simulator_name.c -std=c99 -o output/$simulator_name.bin
+gcc $simulator_name.c -Wall -Werror -std=c99 -o output/$simulator_name.bin 
 
 echo "[[[RUN NASM OUTPUT WITH SIMULATOR...]]]"
 #[output file 2] Disassemble (Params are input bin, output asm)

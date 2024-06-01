@@ -14,7 +14,8 @@
 # Needs a .asm file as an argument.
 
 #Delete all output files from previous runs.
-rm output/*
+mkdir output 2>/dev/null
+rm output/* 2>/dev/null
 
 #C source file name, sans extension
 disassembler_name="disasm8086"
