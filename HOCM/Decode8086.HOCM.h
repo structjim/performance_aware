@@ -19,30 +19,52 @@
 #include<stdio.h>
 #include<string.h>
 #include"../HOCM/JimsTypedefs.HOCM.h"
-const u8 MASK_BIT_1 = 0b10000000;
-const u8 MASK_BIT_2 = 0b01000000;
-const u8 MASK_BIT_3 = 0b00100000;
-const u8 MASK_BIT_4 = 0b00010000;
-const u8 MASK_BIT_5 = 0b00001000;
-const u8 MASK_BIT_6 = 0b00000100;
-const u8 MASK_BIT_7 = 0b00000010;
-const u8 MASK_BIT_8 = 0b00000001;
-enum{MNEM_ADD, MNEM_CMP, MNEM_MOV, MNEM_SUB};
-enum{OPERAND_TYPE_NONE, OPERAND_TYPE_IMMEDITATE, OPERAND_TYPE_REG, OPERAND_TYPE_RM};
-struct Instruction_8086
+const u8 MASK_BIT_1 = 1<<7;
+const u8 MASK_BIT_2 = 1<<6;
+const u8 MASK_BIT_3 = 1<<5;
+const u8 MASK_BIT_4 = 1<<4;
+const u8 MASK_BIT_5 = 1<<3;
+const u8 MASK_BIT_6 = 1<<2;
+const u8 MASK_BIT_7 = 1<<1;
+const u8 MASK_BIT_8 = 1;
+enum
 {
-	//Note that we don't need any strings for mnemonic or operand names.
-	//Strings will be handled by a disassembler. Logical simulation can
-	//simply go without and to the operations.
-	s16 operandValues[2];//REG bits, R/M bits, Immediate values...
-	u8 operandTypes[2];
-	u8 dispValue, instrSize, mnemonicType, modValue;
-	bool W;
+	MNEM_ADD, MNEM_CMP, MNEM_MOV, MNEM_SUB
 };
-typedef struct Instruction_8086 Instr8086;
+enum
+{
+	OPERAND_TYPE_NONE=0, OPERAND_TYPE_IMMEDITATE, OPERAND_TYPE_REG, OPERAND_TYPE_RM
+};
+
+typedef struct
+{	//An intermediate state for an instruction, to be used
+	//both for disassembly and for simulation.
+	u8 mnemonicType, modValue, dispValue, size;
+	u8 operandTypes[2];
+	s16 operandValues[2];//REG bits, R/M bits, Immediate values...
+	bool W;
+}Instr8086;
+
+void populateInstr_nmdzttvvw(Instr8086 *instrIN, u8 mnemonicTypeIN,
+							 u8 modValueIN, u8 dispValueIN, u8 sizeIN,
+							 u8 operandType0IN, u8 operandType1IN,
+							 s16 operandValue0IN, s16 operandValue1IN,
+							 bool WIN)
+{
+	instrIN->mnemonicType = mnemonicTypeIN; //n
+	instrIN->modValue = modValueIN; //m
+	instrIN->dispValue = dispValueIN; //s
+	instrIN->size = sizeIN; //z
+	instrIN->operandTypes[0] = operandType0IN; //t
+	instrIN->operandTypes[1] = operandType1IN; //t
+	instrIN->operandValues[0] = operandValue0IN; //v
+	instrIN->operandValues[1] = operandValue1IN; //v
+	instrIN->W = WIN; //w
+}
+
 u8 subByte_ic(u8 byteIN, u8 firstBitIndex, u8 bitCount)
 {
-	//"ic" because argument 2 and 3 are (index, count).
+	//"ic" because arguments 2,3 are index,count.
 	//Example: Pass this (0b00111000, 2, 3) and you'll get 7.
 	assert(firstBitIndex < 8);
 	assert(bitCount > 0);
@@ -69,7 +91,7 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		modValue = bytes[1]>>6;
 		dispSize =  modValue % 3;
 		targetP->mnemonicType = MNEM_MOV;
-		targetP->instrSize = 2 + dispSize;
+		targetP->size = 2 + dispSize;
 		targetP->operandTypes[!D] = OPERAND_TYPE_REG;
 		targetP->operandTypes[D] = OPERAND_TYPE_RM;
 		targetP->operandValues[!D] = subByte_ic(bytes[1], 2, 3);//REG
@@ -80,7 +102,7 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		printf("Decoded MOV IMM > RM\n");
 		targetP->W = bytes[0] & MASK_BIT_5;
 		targetP->mnemonicType = MNEM_MOV;
-		targetP->instrSize = 2+targetP->W;
+		targetP->size = 2+targetP->W;
 		targetP->operandTypes[0] = OPERAND_TYPE_RM;
 		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDITATE;
 		targetP->operandValues[0] = subByte_ic(bytes[0], 5, 3);//REG
@@ -94,7 +116,7 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		modValue = bytes[1]>>6;
 		dispSize =  modValue % 3;
 		targetP->mnemonicType = MNEM_ADD;
-		targetP->instrSize = 2 + dispSize;
+		targetP->size = 2 + dispSize;
 		targetP->operandTypes[!D] = OPERAND_TYPE_REG;
 		targetP->operandTypes[D] = OPERAND_TYPE_RM;
 		targetP->operandValues[!D] = subByte_ic(bytes[1], 2, 3);//REG
@@ -108,7 +130,7 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		modValue = bytes[1]>>6;
 		dispSize = modValue % 3;
 		targetP->mnemonicType = MNEM_ADD;
-		targetP->instrSize = 3 + targetP->W + dispSize;
+		targetP->size = 3 + targetP->W + dispSize;
 		targetP->operandTypes[0] = OPERAND_TYPE_RM;
 		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDITATE;
 		targetP->operandValues[0] = subByte_ic(bytes[1], 5, 3);//RM
@@ -122,7 +144,7 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		modValue = bytes[1]>>6;
 		dispSize =  modValue % 3;
 		targetP->mnemonicType = MNEM_SUB;
-		targetP->instrSize = 2 + dispSize;
+		targetP->size = 2 + dispSize;
 		targetP->operandTypes[!D] = OPERAND_TYPE_REG;
 		targetP->operandTypes[D] = OPERAND_TYPE_RM;
 		targetP->operandValues[!D] = subByte_ic(bytes[1], 2, 3);//REG
@@ -136,11 +158,25 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		modValue = bytes[1]>>6;
 		dispSize =  modValue % 3;
 		targetP->mnemonicType = MNEM_SUB;
-		targetP->instrSize = 3 + targetP->W + dispSize;
+		targetP->size = 3 + targetP->W + dispSize;
 		targetP->operandTypes[0] = OPERAND_TYPE_RM;
 		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDITATE;
 		targetP->operandValues[0] = subByte_ic(bytes[1], 5, 3);//REG
 		targetP->operandValues[1] = *((u16*)(bytes+2+dispSize));//IMM
+	}
+	else if(bytes[0]>>2 == 0b001110)
+	{	//CMP R/M to/from register
+		printf("Decoded CMP RM <> REG\n");
+		D = bytes[0] & MASK_BIT_7;
+		targetP->W = bytes[0] & MASK_BIT_8;
+		modValue = bytes[1]>>6;
+		dispSize =  modValue % 3;
+		targetP->mnemonicType = MNEM_CMP;
+		targetP->size = 2 + dispSize;
+		targetP->operandTypes[!D] = OPERAND_TYPE_REG;
+		targetP->operandTypes[D] = OPERAND_TYPE_RM;
+		targetP->operandValues[!D] = subByte_ic(bytes[1], 2, 3);//REG
+		targetP->operandValues[D] = subByte_ic(bytes[1], 5, 3);//R/M
 	}
 	else
 	{
