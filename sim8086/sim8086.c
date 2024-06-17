@@ -107,11 +107,9 @@ int main(int argc, char *argv[])
 	//Initial register print
 	printf("Starting memory:\n\n");
 	printAllRegContents(reg_raw_bits);
-
-	int STOPPER = 20;
 		
 	//MASTER LOOP. Each iteration disassembles one instruction.
-	while(*ipP < fInSz && STOPPER--)
+	while(*ipP < fInSz)
 	{
 		s8 *destP, *sourceP;
 		char opStringsPrintFun[2][32];
@@ -367,7 +365,7 @@ void printAllRegContents(u8 *reg_raw_bitsIN)
 	DEBUG_printBytesIn01s((u8*)ipP, 2, 0);
 	DEBUG_PRINT("\n (zps     )\n\n");
 }
-void DEBUG_printBytesIn01s(u8 *startP, int size, int columns)
+void DEBUG_printBytesIn01s(u8 *startP, int size, int columnCount)
 {
 	for(int i=0 ; i<size ; i++)
 	{
@@ -379,7 +377,7 @@ void DEBUG_printBytesIn01s(u8 *startP, int size, int columns)
 		}
 		
 		DEBUG_PRINT(" ");
-		if( columns!=0 && i!=0 && !((i+1)%columns) )
+		if( columnCount && i && !((i+1)%columnCount) )
 		{
 			DEBUG_PRINT("\n");
 		}
