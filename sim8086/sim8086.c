@@ -42,7 +42,8 @@ u8 reg_raw_bits[20] = {0};//Simulation registers
 // 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
 // AL AH BL BH CL CH DL DH SP SP BP BP SI SI DI DI FLAGS IP IP
 
-u8 *flagsP = reg_raw_bits+16, *ipP = reg_raw_bits+18;
+u8 *flagsP = reg_raw_bits+16;
+u16 *ipP = (u16*)(reg_raw_bits+18);
 //FLAGS bits: Zero, Parity, Sign, Overflow, AF, ...
 
 s8 *registerPointers[16] =
@@ -100,24 +101,27 @@ int main(int argc, char *argv[])
 
 	//In debug mode, print all bits of bin, in 8 columns.
 	DEBUG_PRINT("\n\"%s\" binary size is %i.\nRaw binary contents:\n\n", argv[1], fInSz);
-	DEBUG_printBytesIn01s((u8*)fInP, fInSz, 8);
+	DEBUG_printBytesIn01s(inBytes, fInSz, 8);
 	DEBUG_PRINT("\n\n");
 
 	//Initial register print
 	printf("Starting memory:\n\n");
 	printAllRegContents(reg_raw_bits);
+
+	int STOPPER = 20;
 		
 	//MASTER LOOP. Each iteration disassembles one instruction.
-	while(bytesDone < fInSz)
+	while(*ipP < fInSz && STOPPER--)
 	{
 		s8 *destP, *sourceP;
 		char opStringsPrintFun[2][32];
 
-		//Reset zero flag.
-		*flagsP = (*flagsP & ~FLAG_MASK_ZERO);
-		
+		//Reset zero flag. TODO: This is premature!
+		//*flagsP = (*flagsP & ~FLAG_MASK_ZERO);
 		//Decode instruction into struct
-		decodeBinaryAndPopulateInstruction(instructionDataP, placeInBinary);
+		decodeBinaryAndPopulateInstruction(instructionDataP, placeInBinary + *ipP);
+		//Move instruction pointer
+		*ipP += instructionDataP->size;
 		
 		//Select and execute simulation behavior
 		switch(instructionDataP->mnemonicType)
@@ -143,7 +147,7 @@ int main(int argc, char *argv[])
 				   opStringsPrintFun[0], opStringsPrintFun[1]);
 			printf("(Size: %i)\n", instructionDataP->size);
 			printf("Binary: ");
-			DEBUG_printBytesIn01s(placeInBinary, instructionDataP->size, 8);
+			DEBUG_printBytesIn01s(placeInBinary + *ipP-instructionDataP->size, instructionDataP->size, 8);
 			printf("\n\n");
 			break;
 		case MNEM_ADD:
@@ -176,7 +180,7 @@ int main(int argc, char *argv[])
 				   opStringsPrintFun[0], opStringsPrintFun[1]);
 			printf("(Size: %i)\n", instructionDataP->size);
 			printf("Binary: ");
-			DEBUG_printBytesIn01s(placeInBinary, instructionDataP->size, 8);
+			DEBUG_printBytesIn01s(placeInBinary + *ipP-instructionDataP->size, instructionDataP->size, 8);
 			printf("\n\n");
 			break;
 		case MNEM_SUB:
@@ -209,7 +213,7 @@ int main(int argc, char *argv[])
 				   opStringsPrintFun[0], opStringsPrintFun[1]);
 			printf("(Size: %i)\n", instructionDataP->size);
 			printf("Binary: ");
-			DEBUG_printBytesIn01s(placeInBinary, instructionDataP->size, 8);
+			DEBUG_printBytesIn01s(placeInBinary + *ipP-instructionDataP->size, instructionDataP->size, 8);
 			printf("\n\n");
 			break;
 		case MNEM_CMP:
@@ -242,17 +246,27 @@ int main(int argc, char *argv[])
 				   opStringsPrintFun[0], opStringsPrintFun[1]);
 			printf("(Size: %i)\n", instructionDataP->size);
 			printf("Binary: ");
-			DEBUG_printBytesIn01s(placeInBinary, instructionDataP->size, 8);
+			DEBUG_printBytesIn01s(placeInBinary + *ipP-instructionDataP->size, instructionDataP->size, 8);
 			printf("\n\n");
+			break;
+		case MNEM_JNZ:
+			if( !((*flagsP)>>7) )
+			{
+				*ipP += instructionDataP->operandValues[0];
+				printf("Jumped %i.\n\n", instructionDataP->operandValues[0]);
+			}
+			else
+			{
+				printf("Didn't jump.\n\n");
+			}
 			break;
 		default:
 			printf("[[[SIMULATION ERROR! Next 6 bytes on instruction stream:]]]\n   ");
-			DEBUG_printBytesIn01s(placeInBinary, 6, 0);
+			DEBUG_printBytesIn01s(placeInBinary + *ipP-instructionDataP->size, 6, 0);
 			printf("\n\n");
 		}
+		//bytesDone += instructionDataP->size;
 		printAllRegContents(reg_raw_bits);
-		bytesDone += instructionDataP->size;
-		placeInBinary += instructionDataP->size;
 	}//End of decoding and simulation
 	printf("\n");
 	/*	
@@ -350,7 +364,7 @@ void printAllRegContents(u8 *reg_raw_bitsIN)
 	//The other two things (FLAGS and IP)
 	DEBUG_PRINT("  FLAGS      0x%04x IP         0x%04x\n  ", *(u16*)flagsP, *(u16*)ipP);
 	DEBUG_printBytesIn01s(flagsP, 2, 0);
-	DEBUG_printBytesIn01s(ipP, 2, 0);
+	DEBUG_printBytesIn01s((u8*)ipP, 2, 0);
 	DEBUG_PRINT("\n (zps     )\n\n");
 }
 void DEBUG_printBytesIn01s(u8 *startP, int size, int columns)
@@ -378,7 +392,7 @@ s8 *getOperandP(Instr8086 *instructionPIN, u8 operandIndex)
 	u8 registerIndex;
 	switch(instructionPIN->operandTypes[operandIndex])
 	{
-	case OPERAND_TYPE_IMMEDITATE:
+	case OPERAND_TYPE_IMMEDIATE:
 		return (s8*)&instructionPIN->operandValues[operandIndex];
 	case OPERAND_TYPE_REG:
 		registerIndex = (instructionPIN->operandValues[operandIndex] << 1) | W;
@@ -402,7 +416,7 @@ void populateOperandString(char *stringPIN, Instr8086 *instructionPIN, u8 operan
 	s16 *immediateValueP; //Points at instr's immediate value
 	switch(instructionPIN->operandTypes[operandIndex])
 	{
-	case OPERAND_TYPE_IMMEDITATE:
+	case OPERAND_TYPE_IMMEDIATE:
 		s16 valueOUT;
 		immediateValueP = &(instructionPIN->operandValues[operandIndex]);
 		valueOUT = W ? *(s16*)immediateValueP : *(s8*)immediateValueP;

@@ -34,6 +34,6 @@ echo "[[[RUN NASM OUTPUT WITH SIMULATOR...]]]"
 #[output file 2] Disassemble (Params are input bin, output asm)
 ./output/$simulator_name.bin output/1_nasm_assembled.bin output/2_simulator.disasm
 
-echo "done"
+echo "[[[DONE]]]"
 
 #END

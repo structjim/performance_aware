@@ -29,11 +29,11 @@ const u8 MASK_BIT_7 = 1<<1;
 const u8 MASK_BIT_8 = 1;
 enum
 {
-	MNEM_ADD, MNEM_CMP, MNEM_MOV, MNEM_SUB
+	MNEM_ADD, MNEM_CMP, MNEM_JNZ, MNEM_MOV, MNEM_SUB
 };
 enum
 {
-	OPERAND_TYPE_NONE=0, OPERAND_TYPE_IMMEDITATE, OPERAND_TYPE_REG, OPERAND_TYPE_RM
+	OPERAND_TYPE_NONE=0, OPERAND_TYPE_IMMEDIATE, OPERAND_TYPE_REG, OPERAND_TYPE_RM
 };
 
 typedef struct
@@ -97,16 +97,28 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->operandValues[!D] = subByte_ic(bytes[1], 2, 3);//REG
 		targetP->operandValues[D] = subByte_ic(bytes[1], 5, 3);//R/M
 	}
+	else if(bytes[0]>>2 == 0b1100011 &&
+			( (bytes[1] & 0b00111000)>>3 == 0 ))
+	{	//MOV immediate to R/M
+		printf("Decoded MOV IMM > R/M\n");
+		targetP->W = bytes[0] & MASK_BIT_8;
+		targetP->mnemonicType = MNEM_MOV;
+		targetP->size = 3 + targetP->W;
+		targetP->operandTypes[0] = OPERAND_TYPE_RM;
+		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDIATE;
+		targetP->operandValues[0] = subByte_ic(bytes[1], 5, 3);//REG
+		targetP->operandValues[1] = *((s16*)(bytes+2));//IMM
+	}
 	else if(bytes[0]>>4 == 0b1011)
 	{	//MOV immediate to register
-		printf("Decoded MOV IMM > RM\n");
+		printf("Decoded MOV IMM > REG. Yup.\n");
 		targetP->W = bytes[0] & MASK_BIT_5;
 		targetP->mnemonicType = MNEM_MOV;
-		targetP->size = 2+targetP->W;
-		targetP->operandTypes[0] = OPERAND_TYPE_RM;
-		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDITATE;
-		targetP->operandValues[0] = subByte_ic(bytes[0], 5, 3);//REG
-		targetP->operandValues[1] = *((u16*)(bytes+1));//IMM
+		targetP->size = 2 + targetP->W;
+		targetP->operandTypes[0] = OPERAND_TYPE_REG;
+		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDIATE;
+		targetP->operandValues[0] = subByte_ic(bytes[0], 5, 3);//RM
+		targetP->operandValues[1] = *((s16*)(bytes+1));//IMM
 	}
 	else if(bytes[0]>>2 == 0b000000)
 	{	//ADD R/M to/from register
@@ -125,16 +137,23 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	else if((bytes[0]>>2 == 0b100000) && ((bytes[1]&0b00111000) == 0b0))
 	{	//ADD immediate to R/M
 		printf("Decoded ADD IMM > RM\n");
-		targetP->W = bytes[0] & MASK_BIT_8;
-		//S???
+		targetP->W = (bytes[0] & MASK_BIT_8);
 		modValue = bytes[1]>>6;
 		dispSize = modValue % 3;
 		targetP->mnemonicType = MNEM_ADD;
-		targetP->size = 3 + targetP->W + dispSize;
+		bool immediateIsWord = targetP->W && !(bytes[0] & MASK_BIT_7);
+		targetP->size = 3 + immediateIsWord + dispSize;
 		targetP->operandTypes[0] = OPERAND_TYPE_RM;
-		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDITATE;
+		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDIATE;
 		targetP->operandValues[0] = subByte_ic(bytes[1], 5, 3);//RM
-		targetP->operandValues[1] = *((u16*)(bytes+2+dispSize));//IMM
+		if(immediateIsWord)
+		{	//Immediate is only word if W && !S.
+			targetP->operandValues[1] = *((s16*)(bytes+2+dispSize));//IMM
+		}
+		else
+		{
+			targetP->operandValues[1] = *((s8*)(bytes+2+dispSize));//IMM
+		}
 	}
 	else if(bytes[0]>>2 == 0b001010)
 	{	//SUB R/M to/from register
@@ -158,11 +177,19 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		modValue = bytes[1]>>6;
 		dispSize =  modValue % 3;
 		targetP->mnemonicType = MNEM_SUB;
-		targetP->size = 3 + targetP->W + dispSize;
+		bool immediateIsWord = targetP->W && !(bytes[0] & MASK_BIT_7);
+		targetP->size = 3 + immediateIsWord + dispSize;
 		targetP->operandTypes[0] = OPERAND_TYPE_RM;
-		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDITATE;
+		targetP->operandTypes[1] = OPERAND_TYPE_IMMEDIATE;
 		targetP->operandValues[0] = subByte_ic(bytes[1], 5, 3);//REG
-		targetP->operandValues[1] = *((u16*)(bytes+2+dispSize));//IMM
+		if(immediateIsWord)
+		{	//Immediate is only word if W && !S.
+			targetP->operandValues[1] = *((s16*)(bytes+2+dispSize));//IMM
+		}
+		else
+		{
+			targetP->operandValues[1] = *((s8*)(bytes+2+dispSize));//IMM
+		}
 	}
 	else if(bytes[0]>>2 == 0b001110)
 	{	//CMP R/M to/from register
@@ -177,6 +204,15 @@ void decodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->operandTypes[D] = OPERAND_TYPE_RM;
 		targetP->operandValues[!D] = subByte_ic(bytes[1], 2, 3);//REG
 		targetP->operandValues[D] = subByte_ic(bytes[1], 5, 3);//R/M
+	}
+	else if(bytes[0] == 0b01110101)
+	{	//JNZ
+		printf("Decoded JNZ\n");
+		targetP->mnemonicType = MNEM_JNZ;
+		targetP->size = 2;
+		targetP->operandTypes[0] = OPERAND_TYPE_IMMEDIATE;
+		targetP->operandTypes[0] = OPERAND_TYPE_NONE;
+		targetP->operandValues[0] = *(s8*)(bytes+1);
 	}
 	else
 	{
