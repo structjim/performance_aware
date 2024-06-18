@@ -13,6 +13,8 @@
 # a little lucky), the assembly program assembled
 # with NASM will be simulated, with debug logs.
 
+clear
+
 #Delete all output files from previous runs.
 mkdir -p output
 rm output/*

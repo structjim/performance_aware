@@ -1,7 +1,7 @@
 /*	========================================================================
-	//////////////////////////
-	// HEADER ONLY C MODULE //
-	//////////////////////////
+	//////////////////////////////////////
+	// HEADER ONLY LIBRARY OR EXTENSION //
+	//////////////////////////////////////
 	========================================================================
 	(C) Copyright 2024 by structJim, All Rights Reserved.
 	This software is provided 'as-is', without any express or implied
@@ -17,8 +17,8 @@
 	ALWAYS use the derstruct_ macro on an LL before it leaves scope.
 	========================================================================*/
 
-#ifndef hocm_list_s32
-#define hocm_list_s32
+#ifndef hole_list_s32
+#define hole_list_s32
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>

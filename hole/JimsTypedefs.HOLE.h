@@ -7,8 +7,8 @@
 	Typedeps. Yup.
 	========================================================================*/
 
-#ifndef hocm_jims_typedefs
-#define hocm_jims_typedefs
+#ifndef hole_jims_typedefs
+#define hole_jims_typedefs
 
 typedef uint8_t u8;
 typedef uint16_t u16;
