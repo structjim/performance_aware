@@ -4,11 +4,19 @@
 	warranty. In no event will the author(s) be held liable for any
 	damages arising from the use of this software.
 	========================================================================
-	Typedeps. Yup.
+	Just general stuff that I'll use in basically every project.
 	========================================================================*/
 
-#ifndef hole_jims_typedefs
-#define hole_jims_typedefs
+#ifndef hole_jims_general_tools
+#define hole_jims_general_tools
+#include<stdbool.h>
+#include<stdint.h>
+
+#define DEBUG_PRINT if(DEBUG)printf
+#define SPAM(spamn) for(int spami=0; spami++<spamn;)printf
+
+//If you want debug mode, flip the bool main(). DON'T CHANGE IT HERE!
+bool DEBUG=0;
 
 typedef uint8_t u8;
 typedef uint16_t u16;

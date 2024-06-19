@@ -18,39 +18,38 @@
 	materalizes...
 	========================================================================*/
 
-#define DEBUG_PRINT if(DEBUG)printf
 #include<stdbool.h>
 #include<stdint.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
-#include<time.h>
-#include"../hole/Decode8086.HOLE.h"
-#include"../hole/JimsTypedefs.HOLE.h"
-bool DEBUG=1;
+//#include<time.h>
+#include"../hole/decode8086.HOLE.h"
+#include"../hole/jims_general_tools.HOLE.h"
 
 const u8 FLAG_MASK_ZERO = 1<<7;
 const u8 FLAG_MASK_PARITY = 1<<6;
 const u8 FLAG_MASK_SIGN = 1<<5;
 
 void SetZeroFlag(s16 valueIN);
+void SetSignFlag(bool sign_bit);
 void PrintBytesIn01s(void *startP, int size, int columns);
 void PrintAllRegContents();
 void PopulateOperandString(char *stringPIN, Instr8086 *instructionPIN, u8 operand_index);
 int LoadFileTo8086Memory(char *argPIN, u8 memoryIN[]);
-s8 *GetOperandP(Instr8086 *instructionPIN, u8 operand_index);
+u8 *GetOperandP(Instr8086 *instructionPIN, u8 operand_index);
 
 u16 flags = 0;
 u16 ip = 0; //Instruction pointer register
 bool D;
-u8 memory[1024 * 1024];
+u8 memory[1024 * 1024] = {0};
 u8 reg_raw_bits[16] = {0};//Simulation registers
 // 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15
 // AL AH BL BH CL CH DL DH SP SP BP BP SI SI DI DI
 
-void *register_pointers[16] =
+u8 *reg_pntrs[16] =
 {	//Pointers to raw bits where the registers live.
-	//Arranged to have indices like table on page 4-20.
+	//Arranged to have indices like the table on p4-20.
 	//Use 4 bits (reg<<1)|W as the array index.
 	/*AL*/reg_raw_bits,      /*AX*/reg_raw_bits,
 	/*CL*/reg_raw_bits+4,    /*CX*/reg_raw_bits+4,
@@ -62,7 +61,7 @@ void *register_pointers[16] =
 	/*BH*/reg_raw_bits+3,    /*DI*/reg_raw_bits+14
 };
 enum
-{	//Arranged to have indices like table on page 4-20.
+{	//Arranged to have indices like the table on p4-20.
 	AL,    AX,
 	CL,    CX,
 	DL,    DX,
@@ -74,6 +73,8 @@ enum
 };
 int main(int argc, char *argv[])
 {
+	DEBUG=1;
+	
 	int file_in_size = LoadFileTo8086Memory(argv[1], memory);
 
 	//Print all bits of bin, in 8 columns.
@@ -88,14 +89,12 @@ int main(int argc, char *argv[])
 	Instr8086 *instruction_dataP = (Instr8086*)malloc(sizeof(Instr8086));
 
 	while(ip < file_in_size)
-	{
-		// Each iteration disasms + sims one instruction.
-		s8 *destP, *sourceP;
+	{	// Each iteration decodes + sims one instruction.
+		u8 *destP, *sourceP;
+		s16 math_result;
 		char op_strings_print_fun[2][32];
 		
-		//Decode instruction into struct
 		DecodeBinaryAndPopulateInstruction(instruction_dataP, memory+ip);
-		//Move instruction pointer
 		ip += instruction_dataP->size;
 		bool W = instruction_dataP->W;
 		
@@ -127,20 +126,11 @@ int main(int argc, char *argv[])
 			sourceP = GetOperandP(instruction_dataP, 1);
 			//Operate!
 			if(W)
-			{
-				*(s16*)destP += *(s16*)sourceP;
-				SetZeroFlag(*(s16*)destP);
-			}
+				math_result = *(s16*)destP += *(s16*)sourceP;
 			else
-			{
-				*(s8*)destP += *(s8*)sourceP;
-				SetZeroFlag(*(s8*)destP);
-			}
-			//Set sign flag...
-			if( (*(destP+W)) >> 7 )
-				flags = flags | FLAG_MASK_SIGN;//yes
-			else
-				flags = flags & (~FLAG_MASK_SIGN);//no
+				math_result = *(s8*)destP += *(s8*)sourceP;
+			SetZeroFlag(math_result);
+			SetSignFlag( (*(destP+W)) >> 7 );
 			//Print
 			PopulateOperandString(op_strings_print_fun[0], instruction_dataP, 0);
 			PopulateOperandString(op_strings_print_fun[1], instruction_dataP, 1);
@@ -157,20 +147,11 @@ int main(int argc, char *argv[])
 			sourceP = GetOperandP(instruction_dataP, 1);;
 			//Operate!
 			if(W)
-			{
-				*(s16*)destP -= *(s16*)sourceP;
-				SetZeroFlag(*(s16*)destP);
-			}
+				math_result = *(s16*)destP -= *(s16*)sourceP;
 			else
-			{
-				*(s8*)destP -= *(s8*)sourceP;
-				SetZeroFlag(*(s8*)destP);
-			}
-			//Set sign flag...
-			if( (*(destP+W)) >> 7 )
-				flags = flags | FLAG_MASK_SIGN;//yes
-			else
-				flags = flags & (~FLAG_MASK_SIGN);//no
+				math_result = *(s8*)destP -= *(s8*)sourceP;
+			SetZeroFlag(math_result);
+			SetSignFlag( (*(destP+W)) >> 7 );
 			//Print
 			PopulateOperandString(op_strings_print_fun[0], instruction_dataP, 0);
 			PopulateOperandString(op_strings_print_fun[1], instruction_dataP, 1);
@@ -264,6 +245,8 @@ int main(int argc, char *argv[])
 	//fclose(fOutP);
 	*/
 	free(instruction_dataP);
+	int test_mem_index = 69;
+	DEBUG_PRINT("memory[%i] is now %i. <- WE HAVE MEMORY!!! INSTRUCTION PRINTING IS BORKED, THOUGH...\n\n", test_mem_index, memory[test_mem_index]);
 	return 0;
 }//END MAIN
 
@@ -291,6 +274,14 @@ void SetZeroFlag(s16 valueIN)
 		flags = flags | 0b10000000;
 	}
 }
+void SetSignFlag(bool sign_bit)
+{
+	if(sign_bit)
+		flags = flags | FLAG_MASK_SIGN;//yes
+	else
+		flags = flags & (~FLAG_MASK_SIGN);//no
+}
+
 void PrintAllRegContents()
 {
 	printf("  ");
@@ -346,23 +337,47 @@ void PrintBytesIn01s(void *startP, int size, int columnCount)
 		}
 	}
 }
-s8 *GetOperandP(Instr8086 *instruction_dataPIN, u8 operand_index)
+u8 *GetOperandP(Instr8086 *instruction_dataPIN, u8 operand_index)
 {
-	//Note: Depends on global register_pointers array.
+	//Note: Depends on global reg_pntrs array.
 	bool W = instruction_dataPIN->W;
 	u8 registerIndex;
 	switch(instruction_dataPIN->operand_types[operand_index])
 	{
 	case OPERAND_TYPE_IMMEDIATE:
-		return (s8*)&instruction_dataPIN->operand_values[operand_index];
+		return (u8*)&instruction_dataPIN->operand_values[operand_index];
 	case OPERAND_TYPE_REGISTER:
 		registerIndex = (instruction_dataPIN->operand_values[operand_index] << 1) | W;
-		return register_pointers[registerIndex];
+		return reg_pntrs[registerIndex];
 	case OPERAND_TYPE_MEMORY:
+		s16 disp_value = instruction_dataPIN->disp_value;
+		switch( instruction_dataPIN->operand_values[operand_index] )
+		{
+		case 0b000:
+			return memory + *reg_pntrs[BX] + *reg_pntrs[SI] + disp_value;
+		case 0b001:
+			return memory + *reg_pntrs[BX] + *reg_pntrs[DI] + disp_value;
+		case 0b010:
+			return memory + *reg_pntrs[BP] + *reg_pntrs[SI] + disp_value;
+		case 0b011:
+			return memory + *reg_pntrs[BP] + *reg_pntrs[DI] + disp_value;
+		case 0b100:
+			return memory + *reg_pntrs[SI] + disp_value;
+		case 0b101:
+			return memory + *reg_pntrs[DX] + disp_value;
+		case 0b110:
+			if(instruction_dataPIN->mod_value==0b00)
+				return memory + disp_value;//Direct access special case!
+			else
+				return memory + *reg_pntrs[BP] + disp_value;
+		case 0b111:
+			return memory + *reg_pntrs[BX] + disp_value;
+		default:
+			SPAM(144)("[[[MEM DISP ERROR IN GetOperandP! DISP:%i RM:%i]]]\n", disp_value, instruction_dataPIN->operand_values[operand_index]);
+			break;
+		}
 	default:
-		printf("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
-		printf("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
-		printf("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n\n");
+		SPAM(144)("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
 		return NULL;
 	}
 }

@@ -18,7 +18,7 @@
 #include<stdint.h>
 #include<stdio.h>
 #include<string.h>
-#include"../hole/JimsTypedefs.HOLE.h"
+#include"../hole/jims_general_tools.HOLE.h"
 enum
 {
 	MNEM_ADD, MNEM_CMP, MNEM_JNZ, MNEM_MOV, MNEM_SUB
@@ -89,7 +89,7 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	//s16 disp_value;
 	bool D; //D means reg is dest
 	//Instructions appear here in same order as 8086 manual (page 4-20).
-	if(bytes[0]>>2 ==  0b100010)
+	if(bytes[0]>>2 == 0b100010)
 	{	//MOV R/M <> REG
 		printf("Decoded MOV R/M <> REG\n");
 		D = bytes[0] & MASK_BIT_7;
@@ -103,7 +103,7 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->operand_values[!D] = SubByte_ic(bytes[1], 2, 3);//REG
 		targetP->operand_values[D] = SubByte_ic(bytes[1], 5, 3);//R/M
 	}
-	else if(bytes[0]>>2 == 0b1100011 &&! (bytes[1] & 0b00111000)>>3)
+	else if(bytes[0]>>2 == 0b110001 &&! (bytes[1] & 0b00111000))
 	{	//MOV R/M, IMM. HERE!!! HERE!!! HERE!!! HERE!!! HERE!!! HERE!!!
 		printf("Decoded MOV R/M, IMM\n");
 		targetP->mnemonic_type = MNEM_MOV;
@@ -122,7 +122,7 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->operand_values[0] = is_reg_not_mem ?
 			SubByte_ic(bytes[1], 5, 3)
 			:
-			targetP->W? *(s16*)(bytes+2) : *(s8*)(bytes+2);
+			bytes[1] & 0b00000111;
 		targetP->operand_values[1] = targetP->W?
 			*((s16*)(bytes+2+disp_size))
 			:
@@ -132,6 +132,7 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 				*(s16*)(bytes+2)
 				:
 				*(s8*)(bytes+2);
+		else targetP->disp_value = 0;
 	}
 	else if(bytes[0]>>4 == 0b1011)
 	{	//MOV REG, IMM
