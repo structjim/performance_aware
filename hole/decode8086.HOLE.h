@@ -36,7 +36,7 @@ const u8 MASK_BIT_5 = 1<<3;
 const u8 MASK_BIT_6 = 1<<2;
 const u8 MASK_BIT_7 = 1<<1;
 const u8 MASK_BIT_8 = 1;
-const char *register_names[16]=
+const char *REG_NAMES[16]=
 {//Use 4 bits (reg<<1)|W as the array index.
 	"al", "ax",
 	"cl", "cx",
@@ -47,7 +47,7 @@ const char *register_names[16]=
 	"dh", "si",
 	"bh", "di"
 };
-const char *rm_memory_strings[8]=
+const char *MEM_STRINGS[8]=
 {//See table on page 4-20.
 	"(BX) + (SI)",
 	"(BX) + (DI)",
@@ -61,7 +61,7 @@ const char *rm_memory_strings[8]=
 typedef struct
 {	//An intermediate state for an instruction, to be
 	//used both for disassembly and for simulation.
-	char string[32];
+	char string[64];
 	u8 mnemonic_type, mod_value, size;
 	u8 operand_types[2];
 	s16 operand_values[2];//REG bits, R/M bits, Immediate values...
@@ -91,7 +91,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	//Instructions appear here in same order as 8086 manual (page 4-20).
 	if(bytes[0]>>2 == 0b100010)
 	{	//MOV R/M <> REG
-		printf("Decoded MOV R/M <> REG\n");
 		D = bytes[0] & MASK_BIT_7;
 		targetP->W = bytes[0] & MASK_BIT_8;
 		targetP->mod_value = bytes[1]>>6;
@@ -105,7 +104,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if(bytes[0]>>2 == 0b110001 &&! (bytes[1] & 0b00111000))
 	{	//MOV R/M, IMM. HERE!!! HERE!!! HERE!!! HERE!!! HERE!!! HERE!!!
-		printf("Decoded MOV R/M, IMM\n");
 		targetP->mnemonic_type = MNEM_MOV;
 		targetP->W = bytes[0] & MASK_BIT_8;
 		targetP->mod_value = bytes[1]>>6;
@@ -136,7 +134,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if(bytes[0]>>4 == 0b1011)
 	{	//MOV REG, IMM
-		printf("Decoded MOV REG, IMM\n");
 		targetP->W = bytes[0] & MASK_BIT_5;
 		targetP->mnemonic_type = MNEM_MOV;
 		targetP->size = 2 + targetP->W;
@@ -147,7 +144,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if(bytes[0]>>2 == 0b000000)
 	{	//ADD R/M <> REG
-		printf("Decoded ADD R/M <> REG\n");
 		D = bytes[0] & MASK_BIT_7;
 		targetP->W = bytes[0] & MASK_BIT_8;
 		targetP->mod_value = bytes[1]>>6;
@@ -161,7 +157,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if((bytes[0]>>2 == 0b100000) && ((bytes[1]&0b00111000) == 0b0))
 	{	//ADD R/M, IMM
-		printf("Decoded ADD R/M, IMM\n");
 		targetP->W = (bytes[0] & MASK_BIT_8);
 		targetP->mod_value = bytes[1]>>6;
 		disp_size = targetP->mod_value % 3;
@@ -182,7 +177,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if(bytes[0]>>2 == 0b001010)
 	{	//SUB R/M <> REG
-		printf("Decoded SUB R/M <> REG\n");
 		D = bytes[0] & MASK_BIT_7;
 		targetP->W = bytes[0] & MASK_BIT_8;
 		targetP->mod_value = bytes[1]>>6;
@@ -196,7 +190,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if(bytes[0]>>2 == 0b100000 && ((bytes[1]&0b00111000) == 0b00101000))
 	{	//SUB R/M, IMM
-		printf("Decoded SUB R/M, IMM\n");
 		targetP->W = bytes[0] & MASK_BIT_8;
 		//S???
 		targetP->mod_value = bytes[1]>>6;
@@ -218,7 +211,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if(bytes[0]>>2 == 0b001110)
 	{	//CMP R/M <> REG
-		printf("Decoded CMP R/M <> REG\n");
 		D = bytes[0] & MASK_BIT_7;
 		targetP->W = bytes[0] & MASK_BIT_8;
 		targetP->mod_value = bytes[1]>>6;
@@ -232,7 +224,6 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	}
 	else if(bytes[0] == 0b01110101)
 	{	//JNZ
-		printf("Decoded JNZ\n");
 		targetP->mnemonic_type = MNEM_JNZ;
 		targetP->size = 2;
 		targetP->operand_types[0] = OPERAND_TYPE_IMMEDIATE;
@@ -245,5 +236,59 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		printf("[[[DECODING ERROR! COULDN'T SELECT OPERATION TYPE!]]]\n");
 		printf("[[[DECODING ERROR! COULDN'T SELECT OPERATION TYPE!]]]\n\n");
 	}
+	//Populate string:
+	char elements[2][16] = {"", ""};;
+	char mnemonic_string[8];
+	switch(targetP->mnemonic_type)
+	{
+	case MNEM_ADD:
+		sprintf(mnemonic_string,  "add");
+		break;
+	case MNEM_CMP:
+		sprintf(mnemonic_string,  "cmp");
+		break;
+	case MNEM_JNZ:
+		sprintf(mnemonic_string,  "jnz");
+		break;
+	case MNEM_MOV:
+		sprintf(mnemonic_string,  "mov");
+		break;
+	case MNEM_SUB:
+		sprintf(mnemonic_string,  "sub");
+		break;
+	default:
+		SPAM(69)("ERROR SELECTING MNEMONIC IN PopulateInstructionString!!!");
+		break;
+	}
+	//TODO: Handle stuff like "word" and "byte"
+	//TODO: Handle stuff like "word" and "byte"
+	//TODO: Handle stuff like "word" and "byte"
+	u8 operand_count =
+		(targetP->operand_types[0] != OPERAND_TYPE_NONE)
+		+
+		(targetP->operand_types[1] != OPERAND_TYPE_NONE);
+	for(int i=0 ; i<operand_count ; i++)
+	{
+		switch(targetP->operand_types[i])
+		{
+		case OPERAND_TYPE_IMMEDIATE:
+			sprintf(elements[i], " %i", targetP->operand_values[i]);
+			break;
+		case OPERAND_TYPE_REGISTER:
+			u8 reg_index = (targetP->operand_values[i]<<1) | targetP->W;
+			sprintf(elements[i], " %s", REG_NAMES[reg_index]);
+			break;
+		case OPERAND_TYPE_MEMORY:
+			bool is_direct_access = (!targetP->mod_value && targetP->operand_values[i]==0b110);
+			if(is_direct_access)
+				sprintf(elements[i], " [%i]",	targetP->disp_value);
+			else
+				sprintf(elements[i], " [%s + %i]", MEM_STRINGS[targetP->mod_value],
+						targetP->disp_value);
+			break;\
+		}
+	}
+	sprintf(targetP->string, operand_count==2 ? "%s%s,%s":"%s%s%s",
+			mnemonic_string, elements[0], elements[1]);
 }
 #endif

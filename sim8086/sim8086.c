@@ -35,7 +35,6 @@ void SetZeroFlag(s16 valueIN);
 void SetSignFlag(bool sign_bit);
 void PrintBytesIn01s(void *startP, int size, int columns);
 void PrintAllRegContents();
-void PopulateOperandString(char *stringPIN, Instr8086 *instructionPIN, u8 operand_index);
 int LoadFileTo8086Memory(char *argPIN, u8 memoryIN[]);
 u8 *GetOperandP(Instr8086 *instructionPIN, u8 operand_index);
 
@@ -92,7 +91,6 @@ int main(int argc, char *argv[])
 	{	// Each iteration decodes + sims one instruction.
 		u8 *destP, *sourceP;
 		s16 math_result;
-		char op_strings_print_fun[2][32];
 		
 		DecodeBinaryAndPopulateInstruction(instruction_dataP, memory+ip);
 		ip += instruction_dataP->size;
@@ -110,15 +108,6 @@ int main(int argc, char *argv[])
 				*(s16*)destP = *(s16*)sourceP;
 			else
 				*(s8*)destP = *(s8*)sourceP;
-			//Print
-			PopulateOperandString(op_strings_print_fun[0], instruction_dataP, 0);
-			PopulateOperandString(op_strings_print_fun[1], instruction_dataP, 1);
-			printf("Below is register contents after operation: mov %s, %s ",
-				   op_strings_print_fun[0], op_strings_print_fun[1]);
-			printf("(Size: %i)\n", instruction_dataP->size);
-			printf("Binary: ");
-			PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
-			printf("\n\n");
 			break;
 		case MNEM_ADD:
 			//Get pointers to operand values.
@@ -131,15 +120,6 @@ int main(int argc, char *argv[])
 				math_result = *(s8*)destP += *(s8*)sourceP;
 			SetZeroFlag(math_result);
 			SetSignFlag( (*(destP+W)) >> 7 );
-			//Print
-			PopulateOperandString(op_strings_print_fun[0], instruction_dataP, 0);
-			PopulateOperandString(op_strings_print_fun[1], instruction_dataP, 1);
-			printf("Below is register contents after operation: add %s, %s ",
-				   op_strings_print_fun[0], op_strings_print_fun[1]);
-			printf("(Size: %i)\n", instruction_dataP->size);
-			printf("Binary: ");
-			PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
-			printf("\n\n");
 			break;
 		case MNEM_SUB:
 			//Get pointers to operand values.
@@ -152,15 +132,6 @@ int main(int argc, char *argv[])
 				math_result = *(s8*)destP -= *(s8*)sourceP;
 			SetZeroFlag(math_result);
 			SetSignFlag( (*(destP+W)) >> 7 );
-			//Print
-			PopulateOperandString(op_strings_print_fun[0], instruction_dataP, 0);
-			PopulateOperandString(op_strings_print_fun[1], instruction_dataP, 1);
-			printf("Below is register contents after operation: sub %s, %s ",
-				   op_strings_print_fun[0], op_strings_print_fun[1]);
-			printf("(Size: %i)\n", instruction_dataP->size);
-			printf("Binary: ");
-			PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
-			printf("\n\n");
 			break;
 		case MNEM_CMP:
 			s16 compareAUX;
@@ -183,15 +154,6 @@ int main(int argc, char *argv[])
 				flags = flags | FLAG_MASK_SIGN;
 			else
 				flags = flags & (~FLAG_MASK_SIGN);
-			//Print
-			PopulateOperandString(op_strings_print_fun[0], instruction_dataP, 0);
-			PopulateOperandString(op_strings_print_fun[1], instruction_dataP, 1);
-			printf("Below is register contents after operation: cmp %s, %s ",
-				   op_strings_print_fun[0], op_strings_print_fun[1]);
-			printf("(Size: %i)\n", instruction_dataP->size);
-			printf("Binary: ");
-			PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
-			printf("\n\n");
 			break;
 		case MNEM_JNZ:
 			if( !(flags>>7) )
@@ -209,7 +171,10 @@ int main(int argc, char *argv[])
 			PrintBytesIn01s(memory + ip - instruction_dataP->size, 6, 0);
 			printf("\n\n");
 		}
-		//bytesDone += instruction_dataP->size;
+		//Print
+		printf("%s (Size: %i)\n",instruction_dataP->string, instruction_dataP->size);
+		PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
+		printf("\n\n");
 		PrintAllRegContents(reg_raw_bits);
 	}//End of decoding and simulation
 	/*	
@@ -246,7 +211,7 @@ int main(int argc, char *argv[])
 	*/
 	free(instruction_dataP);
 	int test_mem_index = 69;
-	DEBUG_PRINT("memory[%i] is now %i. <- WE HAVE MEMORY!!! INSTRUCTION PRINTING IS BORKED, THOUGH...\n\n", test_mem_index, memory[test_mem_index]);
+	DEBUG_PRINT("memory[%i] is now %i. <- WE HAVE MEMORY!!!\n\n", test_mem_index, memory[test_mem_index]);
 	return 0;
 }//END MAIN
 
@@ -379,27 +344,5 @@ u8 *GetOperandP(Instr8086 *instruction_dataPIN, u8 operand_index)
 	default:
 		SPAM(144)("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
 		return NULL;
-	}
-}
-void PopulateOperandString(char *stringPIN, Instr8086 *instruction_dataPIN, u8 operand_index)
-{
-	//Note: Depends on global register_names array.
-	bool W = instruction_dataPIN->W;
-	u8 registerIndex;
-	s16 *immediateValueP; //Points at instr's immediate value
-	switch(instruction_dataPIN->operand_types[operand_index])
-	{
-	case OPERAND_TYPE_IMMEDIATE:
-		s16 valueOUT;
-		immediateValueP = &(instruction_dataPIN->operand_values[operand_index]);
-		valueOUT = W ? *(s16*)immediateValueP : *(s8*)immediateValueP;
-		sprintf(stringPIN, "%i", valueOUT);
-		break;
-	case OPERAND_TYPE_REGISTER:
-		registerIndex = (instruction_dataPIN->operand_values[operand_index] << 1) | W;
-		sprintf(stringPIN, "%s", register_names[registerIndex]);
-		break;
-	case OPERAND_TYPE_MEMORY:
-		break;
 	}
 }

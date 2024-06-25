@@ -3,6 +3,7 @@
 ###################
 ## BUILD AND RUN ##
 ###################
+# (No relation to the counterpart of "foo".)
 
 # Note this depends on having NASM installed. (sudo apt install nasm)
 
@@ -24,18 +25,16 @@ simulator_name="sim8086"
 #asmIN is the .asm passed to this script as an argument
 asmIN=$1
 
-echo "[[[ASSEMBLE ARGUMENT .ASM FILE WITH NASM...]]]"
+echo "[[[BAR: ASSEMBLE ARGUMENT .ASM FILE WITH NASM...]]]"
 #[output file 1] NASM assembles argument .asm to .bin
 nasm $asmIN -o output/1_nasm_assembled.bin
 
-echo "[[[COMPILE 8086 SIMULATOR WITH GCC...]]]"
+echo "[[[BAR: COMPILE 8086 SIMULATOR WITH GCC...]]]"
 #Compile the simulator
 gcc $simulator_name.c -Wall -Werror -std=c99 -o output/$simulator_name.bin 
 
-echo "[[[RUN NASM OUTPUT WITH SIMULATOR...]]]"
+echo "[[[BAR: RUN NASM OUTPUT WITH SIMULATOR...]]]"
 #[output file 2] Disassemble (Params are input bin, output asm)
 ./output/$simulator_name.bin output/1_nasm_assembled.bin output/2_simulator.disasm
 
-echo "[[[DONE]]]"
-
-#END
+echo "[[[BAR: DONE]]]"
