@@ -13,7 +13,7 @@
 #include<stdint.h>
 
 #define DEBUG_PRINT if(DEBUG)printf
-#define SPAM(spamn) for(int spami=0; spami++<spamn;)printf
+#define SPAM for(int spami=0;spami<144;spami++)printf
 
 //If you want debug mode, flip the bool main(). DON'T CHANGE IT HERE!
 bool DEBUG=0;

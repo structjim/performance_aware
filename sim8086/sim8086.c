@@ -176,42 +176,8 @@ int main(int argc, char *argv[])
 		PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
 		printf("\n\n");
 		PrintAllRegContents(reg_raw_bits);
-	}//End of decoding and simulation
-	/*	
-	//Write to output file
-	//FILE *fOutP = fopen(argv[2], "w");
-	unsigned int bytesWritten = 0;
-	unsigned int labelsWritten = 0;
-	fprintf(fOutP, "%s", "bits 16"); //Bit width directive counts as 0 bytes
-	for(int i=0 ; i<instrs_done ; i++)
-	{//Each iteration writes 1 instr
-		fprintf(fOutP, "\n%s", getIndexLL_S32(&instrStrings, i));
-		bytesWritten += sizes[i];
-		
-		if(labelsWritten < labelCount)
-		{
-			//labelIndices[] are byte numbers that need labels after
-			//Labels are named after the index of the preceding byte
-			if(labelIndices[labelsWritten] == bytesWritten)
-			{
-				fprintf(fOutP, "\nlabel%i:", bytesWritten);
-				labelsWritten++;
-			}
-		}
-	}
-	//Get output file size
-	fseek(fOutP, 0, SEEK_END); //Set file position to end
-	int fOutSz = ftell(fOutP); //Store offset (file out size)
-	DEBUG_PRINT("Disassembly DONE.\n");
-	DEBUG_PRINT("Total instructions: %i\n", instrs_done);
-	DEBUG_PRINT("Total labels: %i\n", labelCount);
-	DEBUG_PRINT("File IN size: %i\n", file_in_size);
-	DEBUG_PRINT("File OUT size: %i\n", fOutSz);
-	//fclose(fOutP);
-	*/
+	}//End of decoding and simulation loop
 	free(instruction_dataP);
-	int test_mem_index = 69;
-	DEBUG_PRINT("memory[%i] is now %i. <- WE HAVE MEMORY!!!\n\n", test_mem_index, memory[test_mem_index]);
 	return 0;
 }//END MAIN
 
@@ -319,30 +285,30 @@ u8 *GetOperandP(Instr8086 *instruction_dataPIN, u8 operand_index)
 		switch( instruction_dataPIN->operand_values[operand_index] )
 		{
 		case 0b000:
-			return memory + *reg_pntrs[BX] + *reg_pntrs[SI] + disp_value;
+			return memory + *(s16*)reg_pntrs[BX] + *(s16*)reg_pntrs[SI] + disp_value;
 		case 0b001:
-			return memory + *reg_pntrs[BX] + *reg_pntrs[DI] + disp_value;
+			return memory + *(s16*)reg_pntrs[BX] + *(s16*)reg_pntrs[DI] + disp_value;
 		case 0b010:
-			return memory + *reg_pntrs[BP] + *reg_pntrs[SI] + disp_value;
+			return memory + *(s16*)reg_pntrs[BP] + *(s16*)reg_pntrs[SI] + disp_value;
 		case 0b011:
-			return memory + *reg_pntrs[BP] + *reg_pntrs[DI] + disp_value;
+			return memory + *(s16*)reg_pntrs[BP] + *(s16*)reg_pntrs[DI] + disp_value;
 		case 0b100:
-			return memory + *reg_pntrs[SI] + disp_value;
+			return memory + *(s16*)reg_pntrs[SI] + disp_value;
 		case 0b101:
-			return memory + *reg_pntrs[DX] + disp_value;
+			return memory + *(s16*)reg_pntrs[DX] + disp_value;
 		case 0b110:
 			if(instruction_dataPIN->mod_value==0b00)
-				return memory + disp_value;//Direct access special case!
+				return memory + disp_value;//Direct access!
 			else
-				return memory + *reg_pntrs[BP] + disp_value;
+				return memory + *(s16*)reg_pntrs[BP] + disp_value;
 		case 0b111:
-			return memory + *reg_pntrs[BX] + disp_value;
+			return memory + *(s16*)reg_pntrs[BX] + disp_value;
 		default:
-			SPAM(144)("[[[MEM DISP ERROR IN GetOperandP! DISP:%i RM:%i]]]\n", disp_value, instruction_dataPIN->operand_values[operand_index]);
+			SPAM("[[[MEM DISP ERROR IN GetOperandP! DISP:%i RM:%i]]]\n", disp_value, instruction_dataPIN->operand_values[operand_index]);
 			break;
 		}
 	default:
-		SPAM(144)("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
+		SPAM("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
 		return NULL;
 	}
 }
