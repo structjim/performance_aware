@@ -33,7 +33,7 @@ const u8 FLAG_MASK_SIGN = 1<<5;
 
 void SetZeroFlag(s16 valueIN);
 void SetSignFlag(bool sign_bit);
-void PrintBytesIn01s(void *startP, int size, int columns);
+void PrintBytesIn01s(void *startP, int size, int column_count);
 void PrintAllRegContents();
 int LoadFileTo8086Memory(char *argPIN, u8 memoryIN[]);
 u8 *GetOperandP(Instr8086 *instructionPIN, u8 operand_index);
@@ -61,14 +61,14 @@ u8 *reg_pntrs[16] =
 };
 enum
 {	//Arranged to have indices like the table on p4-20.
-	AL,    AX,
-	CL,    CX,
-	DL,    DX,
-	BL,    BX,
-	AH,    SP,
-	CH,    BP,
-	DH,    SI,
-	BH,    DI
+	REG_AL, REG_AX,
+	REG_CL, REG_CX,
+	REG_DL, REG_DX,
+	REG_BL, REG_BX,
+	REG_AH, REG_SP,
+	REG_CH, REG_BP,
+	REG_DH, REG_SI,
+	REG_BH, REG_DI
 };
 int main(int argc, char *argv[])
 {
@@ -100,21 +100,17 @@ int main(int argc, char *argv[])
 		switch(instruction_dataP->mnemonic_type)
 		{
 		case MNEM_MOV:
-			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);;
-			//Operate!
 			if(W)
 				*(s16*)destP = *(s16*)sourceP;
 			else
 				*(s8*)destP = *(s8*)sourceP;
 			break;
 		case MNEM_ADD:
-			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);
-			//Operate!
-			if(W)
+			if(W) //NOTE: R = D += S
 				math_result = *(s16*)destP += *(s16*)sourceP;
 			else
 				math_result = *(s8*)destP += *(s8*)sourceP;
@@ -122,11 +118,9 @@ int main(int argc, char *argv[])
 			SetSignFlag( (*(destP+W)) >> 7 );
 			break;
 		case MNEM_SUB:
-			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);;
-			//Operate!
-			if(W)
+			if(W) //NOTE: R = D -= S
 				math_result = *(s16*)destP -= *(s16*)sourceP;
 			else
 				math_result = *(s8*)destP -= *(s8*)sourceP;
@@ -134,26 +128,14 @@ int main(int argc, char *argv[])
 			SetSignFlag( (*(destP+W)) >> 7 );
 			break;
 		case MNEM_CMP:
-			s16 compareAUX;
-			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);;
-			//Operate!
 			if(W)
-			{
-				compareAUX = *(s16*)destP - *(s16*)sourceP;
-				SetZeroFlag(compareAUX);
-			}
+				math_result = *(s16*)destP - *(s16*)sourceP;
 			else
-			{
-				compareAUX = *(s8*)destP - *(s8*)sourceP;
-				SetZeroFlag(compareAUX);
-			}
-			//Set sign flag
-			if( compareAUX>>15 )
-				flags = flags | FLAG_MASK_SIGN;
-			else
-				flags = flags & (~FLAG_MASK_SIGN);
+				math_result = *(s8*)destP - *(s8*)sourceP;
+			SetZeroFlag(math_result);
+			SetSignFlag( (*(destP+W)) >> 7 );
 			break;
 		case MNEM_JNZ:
 			if( !(flags>>7) )
@@ -176,6 +158,7 @@ int main(int argc, char *argv[])
 		PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
 		printf("\n\n");
 		PrintAllRegContents(reg_raw_bits);
+		instruction_dataP->mnemonic_type = MNEM_NONE;
 	}//End of decoding and simulation loop
 	free(instruction_dataP);
 	return 0;
@@ -250,7 +233,7 @@ void PrintAllRegContents()
 	PrintBytesIn01s(&ip, 2, 0);
 	printf("\n (zps     )\n\n");
 }
-void PrintBytesIn01s(void *startP, int size, int columnCount)
+void PrintBytesIn01s(void *startP, int size, int column_count)
 {
 	for(int i=0 ; i<size ; i++)
 	{
@@ -262,7 +245,7 @@ void PrintBytesIn01s(void *startP, int size, int columnCount)
 		}
 		
 		printf(" ");
-		if( columnCount && i && !((i+1)%columnCount) )
+		if( column_count && i && !((i+1)%column_count) )
 		{
 			printf("\n");
 		}
@@ -285,24 +268,24 @@ u8 *GetOperandP(Instr8086 *instruction_dataPIN, u8 operand_index)
 		switch( instruction_dataPIN->operand_values[operand_index] )
 		{
 		case 0b000:
-			return memory + *(s16*)reg_pntrs[BX] + *(s16*)reg_pntrs[SI] + disp_value;
+			return memory + *(s16*)reg_pntrs[REG_BX] + *(s16*)reg_pntrs[REG_SI] + disp_value;
 		case 0b001:
-			return memory + *(s16*)reg_pntrs[BX] + *(s16*)reg_pntrs[DI] + disp_value;
+			return memory + *(s16*)reg_pntrs[REG_BX] + *(s16*)reg_pntrs[REG_DI] + disp_value;
 		case 0b010:
-			return memory + *(s16*)reg_pntrs[BP] + *(s16*)reg_pntrs[SI] + disp_value;
+			return memory + *(s16*)reg_pntrs[REG_BP] + *(s16*)reg_pntrs[REG_SI] + disp_value;
 		case 0b011:
-			return memory + *(s16*)reg_pntrs[BP] + *(s16*)reg_pntrs[DI] + disp_value;
+			return memory + *(s16*)reg_pntrs[REG_BP] + *(s16*)reg_pntrs[REG_DI] + disp_value;
 		case 0b100:
-			return memory + *(s16*)reg_pntrs[SI] + disp_value;
+			return memory + *(s16*)reg_pntrs[REG_SI] + disp_value;
 		case 0b101:
-			return memory + *(s16*)reg_pntrs[DX] + disp_value;
+			return memory + *(s16*)reg_pntrs[REG_DX] + disp_value;
 		case 0b110:
 			if(instruction_dataPIN->mod_value==0b00)
 				return memory + disp_value;//Direct access!
 			else
-				return memory + *(s16*)reg_pntrs[BP] + disp_value;
+				return memory + *(s16*)reg_pntrs[REG_BP] + disp_value;
 		case 0b111:
-			return memory + *(s16*)reg_pntrs[BX] + disp_value;
+			return memory + *(s16*)reg_pntrs[REG_BX] + disp_value;
 		default:
 			SPAM("[[[MEM DISP ERROR IN GetOperandP! DISP:%i RM:%i]]]\n", disp_value, instruction_dataPIN->operand_values[operand_index]);
 			break;

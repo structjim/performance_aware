@@ -21,7 +21,7 @@
 #include"../hole/jims_general_tools.HOLE.h"
 enum
 {
-	MNEM_ADD, MNEM_CMP, MNEM_JNZ, MNEM_MOV, MNEM_SUB
+	MNEM_NONE=0, MNEM_ADD, MNEM_CMP, MNEM_JNZ, MNEM_MOV, MNEM_SUB
 };
 enum
 {
@@ -36,7 +36,7 @@ const u8 MASK_BIT_5 = 1<<3;
 const u8 MASK_BIT_6 = 1<<2;
 const u8 MASK_BIT_7 = 1<<1;
 const u8 MASK_BIT_8 = 1;
-const char *REG_NAMES[16]=
+const char *REG_NAMES[16] =
 {//Use 4 bits (reg<<1)|W as the array index.
 	"al", "ax",
 	"cl", "cx",
