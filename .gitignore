@@ -6,14 +6,14 @@
 # All output folders
 */output/*
 
+# Folder for external materials, like Casey's .asm listings
+course_materials/
+
 # Binaries
 *.bin
 
 # PortableGit directory
 PortableGit/
-
-# Ignore pdf files (So I can keep 8086 documentation handy)
-*.pdf
 
 # Jim's .asm test file(s)
 */test.asm
