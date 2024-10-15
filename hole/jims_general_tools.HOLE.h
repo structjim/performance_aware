@@ -13,9 +13,9 @@
 #include<stdint.h>
 
 #define DEBUG_PRINT if(DEBUG)printf
-#define SPAM for(int spami=0;spami<144;spami++)printf
+#define SPAM(spamn) for(int spami=0; spami++<spamn;)printf
 
-//If you want debug mode, flip the bool main(). DON'T CHANGE IT HERE!
+//If you want debug mode, set this at start of main(), NOT HERE!
 bool DEBUG=0;
 
 typedef uint8_t u8;
@@ -27,5 +27,8 @@ typedef int8_t s8;
 typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
+
+typedef float f32;
+typedef double f64;
 
 #endif

@@ -31,9 +31,9 @@ const u8 FLAG_MASK_ZERO = 1<<7;
 const u8 FLAG_MASK_PARITY = 1<<6;
 const u8 FLAG_MASK_SIGN = 1<<5;
 
-void SetZeroFlag(s16 valueIN);
+void SetZeroFlag(u16 valueIN);
 void SetSignFlag(bool sign_bit);
-void PrintBytesIn01s(void *startP, int size, int column_count);
+void PrintBytesIn01s(void *startP, int size, int columns);
 void PrintAllRegContents();
 int LoadFileTo8086Memory(char *argPIN, u8 memoryIN[]);
 u8 *GetOperandP(Instr8086 *instructionPIN, u8 operand_index);
@@ -61,14 +61,14 @@ u8 *reg_pntrs[16] =
 };
 enum
 {	//Arranged to have indices like the table on p4-20.
-	REG_AL, REG_AX,
-	REG_CL, REG_CX,
-	REG_DL, REG_DX,
-	REG_BL, REG_BX,
-	REG_AH, REG_SP,
-	REG_CH, REG_BP,
-	REG_DH, REG_SI,
-	REG_BH, REG_DI
+	AL,    AX,
+	CL,    CX,
+	DL,    DX,
+	BL,    BX,
+	AH,    SP,
+	CH,    BP,
+	DH,    SI,
+	BH,    DI
 };
 int main(int argc, char *argv[])
 {
@@ -85,12 +85,13 @@ int main(int argc, char *argv[])
 	DEBUG_PRINT("Starting registers:\n\n");
 	if(DEBUG)PrintAllRegContents();
 
-	Instr8086 *instruction_dataP = (Instr8086*)malloc(sizeof(Instr8086));
+	Instr8086 instruction_data, *instruction_dataP;
+	instruction_dataP = &instruction_data;
 
 	while(ip < file_in_size)
 	{	// Each iteration decodes + sims one instruction.
 		u8 *destP, *sourceP;
-		s16 math_result;
+		u16 math_result;
 		
 		DecodeBinaryAndPopulateInstruction(instruction_dataP, memory+ip);
 		ip += instruction_dataP->size;
@@ -100,48 +101,66 @@ int main(int argc, char *argv[])
 		switch(instruction_dataP->mnemonic_type)
 		{
 		case MNEM_MOV:
+			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);;
+			//Operate!
 			if(W)
-				*(s16*)destP = *(s16*)sourceP;
+				*(u16*)destP = *(u16*)sourceP;
 			else
-				*(s8*)destP = *(s8*)sourceP;
+				*(u8*)destP = *(u8*)sourceP;
 			break;
 		case MNEM_ADD:
+			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);
-			if(W) //NOTE: R = D += S
-				math_result = *(s16*)destP += *(s16*)sourceP;
+			//Operate!
+			if(W)
+				math_result = *(u16*)destP += *(u16*)sourceP;
 			else
-				math_result = *(s8*)destP += *(s8*)sourceP;
+				math_result = *(u8*)destP += *(u8*)sourceP;
 			SetZeroFlag(math_result);
 			SetSignFlag( (*(destP+W)) >> 7 );
 			break;
 		case MNEM_SUB:
+			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);;
-			if(W) //NOTE: R = D -= S
-				math_result = *(s16*)destP -= *(s16*)sourceP;
+			//Operate!
+			if(W)
+				math_result = *(u16*)destP -= *(u16*)sourceP;
 			else
-				math_result = *(s8*)destP -= *(s8*)sourceP;
+				math_result = *(u8*)destP -= *(u8*)sourceP;
 			SetZeroFlag(math_result);
 			SetSignFlag( (*(destP+W)) >> 7 );
 			break;
 		case MNEM_CMP:
+			u16 compareAUX;
+			//Get pointers to operand values.
 			destP = GetOperandP(instruction_dataP, 0);
 			sourceP = GetOperandP(instruction_dataP, 1);;
+			//Operate!
 			if(W)
-				math_result = *(s16*)destP - *(s16*)sourceP;
+			{
+				compareAUX = *(u16*)destP - *(u16*)sourceP;
+				SetZeroFlag(compareAUX);
+			}
 			else
-				math_result = *(s8*)destP - *(s8*)sourceP;
-			SetZeroFlag(math_result);
-			SetSignFlag( (*(destP+W)) >> 7 );
+			{
+				compareAUX = *(u8*)destP - *(u8*)sourceP;
+				SetZeroFlag(compareAUX);
+			}
+			//Set sign flag
+			if( compareAUX>>15 )
+				flags = flags | FLAG_MASK_SIGN;
+			else
+				flags = flags & (~FLAG_MASK_SIGN);
 			break;
 		case MNEM_JNZ:
 			if( !(flags>>7) )
 			{
 				ip += instruction_dataP->operand_values[0];
-				printf("Jumped %i.\n\n", instruction_dataP->operand_values[0]);
+				printf("Jumped %i.\n\n", (s8)instruction_dataP->operand_values[0]);
 			}
 			else
 			{
@@ -158,9 +177,41 @@ int main(int argc, char *argv[])
 		PrintBytesIn01s(memory + ip - instruction_dataP->size, instruction_dataP->size, 8);
 		printf("\n\n");
 		PrintAllRegContents(reg_raw_bits);
-		instruction_dataP->mnemonic_type = MNEM_NONE;
-	}//End of decoding and simulation loop
-	free(instruction_dataP);
+	}//End of decoding and simulation
+	/*	
+	//Write to output file
+	//FILE *fOutP = fopen(argv[2], "w");
+	unsigned int bytesWritten = 0;
+	unsigned int labelsWritten = 0;
+	fprintf(fOutP, "%s", "bits 16"); //Bit width directive counts as 0 bytes
+	for(int i=0 ; i<instrs_done ; i++)
+	{//Each iteration writes 1 instr
+		fprintf(fOutP, "\n%s", getIndexLL_S32(&instrStrings, i));
+		bytesWritten += sizes[i];
+		
+		if(labelsWritten < labelCount)
+		{
+			//labelIndices[] are byte numbers that need labels after
+			//Labels are named after the index of the preceding byte
+			if(labelIndices[labelsWritten] == bytesWritten)
+			{
+				fprintf(fOutP, "\nlabel%i:", bytesWritten);
+				labelsWritten++;
+			}
+		}
+	}
+	//Get output file size
+	fseek(fOutP, 0, SEEK_END); //Set file position to end
+	int fOutSz = ftell(fOutP); //Store offset (file out size)
+	DEBUG_PRINT("Disassembly DONE.\n");
+	DEBUG_PRINT("Total instructions: %i\n", instrs_done);
+	DEBUG_PRINT("Total labels: %i\n", labelCount);
+	DEBUG_PRINT("File IN size: %i\n", file_in_size);
+	DEBUG_PRINT("File OUT size: %i\n", fOutSz);
+	//fclose(fOutP);
+	*/
+	int test_mem_index = 69;
+	DEBUG_PRINT("memory[%i] is now %i. <- WE HAVE MEMORY!!!\n\n", test_mem_index, memory[test_mem_index]);
 	return 0;
 }//END MAIN
 
@@ -177,7 +228,7 @@ int LoadFileTo8086Memory(char *argPIN, u8 memoryIN[])
 	fclose(openP);
 	return file_in_size;
 }
-void SetZeroFlag(s16 valueIN)
+void SetZeroFlag(u16 valueIN)
 {
 	if(valueIN)
 	{	//Not zero
@@ -233,7 +284,7 @@ void PrintAllRegContents()
 	PrintBytesIn01s(&ip, 2, 0);
 	printf("\n (zps     )\n\n");
 }
-void PrintBytesIn01s(void *startP, int size, int column_count)
+void PrintBytesIn01s(void *startP, int size, int columnCount)
 {
 	for(int i=0 ; i<size ; i++)
 	{
@@ -245,7 +296,7 @@ void PrintBytesIn01s(void *startP, int size, int column_count)
 		}
 		
 		printf(" ");
-		if( column_count && i && !((i+1)%column_count) )
+		if( columnCount && i && !((i+1)%columnCount) )
 		{
 			printf("\n");
 		}
@@ -264,34 +315,34 @@ u8 *GetOperandP(Instr8086 *instruction_dataPIN, u8 operand_index)
 		registerIndex = (instruction_dataPIN->operand_values[operand_index] << 1) | W;
 		return reg_pntrs[registerIndex];
 	case OPERAND_TYPE_MEMORY:
-		s16 disp_value = instruction_dataPIN->disp_value;
+		u16 disp_value = instruction_dataPIN->disp_value;
 		switch( instruction_dataPIN->operand_values[operand_index] )
 		{
 		case 0b000:
-			return memory + *(s16*)reg_pntrs[REG_BX] + *(s16*)reg_pntrs[REG_SI] + disp_value;
+			return memory + *reg_pntrs[BX] + *reg_pntrs[SI] + disp_value;
 		case 0b001:
-			return memory + *(s16*)reg_pntrs[REG_BX] + *(s16*)reg_pntrs[REG_DI] + disp_value;
+			return memory + *reg_pntrs[BX] + *reg_pntrs[DI] + disp_value;
 		case 0b010:
-			return memory + *(s16*)reg_pntrs[REG_BP] + *(s16*)reg_pntrs[REG_SI] + disp_value;
+			return memory + *reg_pntrs[BP] + *reg_pntrs[SI] + disp_value;
 		case 0b011:
-			return memory + *(s16*)reg_pntrs[REG_BP] + *(s16*)reg_pntrs[REG_DI] + disp_value;
+			return memory + *reg_pntrs[BP] + *reg_pntrs[DI] + disp_value;
 		case 0b100:
-			return memory + *(s16*)reg_pntrs[REG_SI] + disp_value;
+			return memory + *reg_pntrs[SI] + disp_value;
 		case 0b101:
-			return memory + *(s16*)reg_pntrs[REG_DX] + disp_value;
+			return memory + *reg_pntrs[DX] + disp_value;
 		case 0b110:
 			if(instruction_dataPIN->mod_value==0b00)
-				return memory + disp_value;//Direct access!
+				return memory + disp_value;//Direct access special case!
 			else
-				return memory + *(s16*)reg_pntrs[REG_BP] + disp_value;
+				return memory + *reg_pntrs[BP] + disp_value;
 		case 0b111:
-			return memory + *(s16*)reg_pntrs[REG_BX] + disp_value;
+			return memory + *reg_pntrs[BX] + disp_value;
 		default:
-			SPAM("[[[MEM DISP ERROR IN GetOperandP! DISP:%i RM:%i]]]\n", disp_value, instruction_dataPIN->operand_values[operand_index]);
+			SPAM(144)("[[[MEM DISP ERROR IN GetOperandP! DISP:%i RM:%i]]]\n", disp_value, instruction_dataPIN->operand_values[operand_index]);
 			break;
 		}
 	default:
-		SPAM("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
+		SPAM(144)("[[[ERROR SELECTING OPERAND TYPE IN GetOperandP function!]]]\n");
 		return NULL;
 	}
 }

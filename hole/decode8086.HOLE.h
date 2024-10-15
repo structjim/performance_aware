@@ -21,7 +21,7 @@
 #include"../hole/jims_general_tools.HOLE.h"
 enum
 {
-	MNEM_NONE=0, MNEM_ADD, MNEM_CMP, MNEM_JNZ, MNEM_MOV, MNEM_SUB
+	MNEM_ADD, MNEM_CMP, MNEM_JNZ, MNEM_MOV, MNEM_SUB
 };
 enum
 {
@@ -36,7 +36,7 @@ const u8 MASK_BIT_5 = 1<<3;
 const u8 MASK_BIT_6 = 1<<2;
 const u8 MASK_BIT_7 = 1<<1;
 const u8 MASK_BIT_8 = 1;
-const char *REG_NAMES[16] =
+const char *REG_NAMES[16]=
 {//Use 4 bits (reg<<1)|W as the array index.
 	"al", "ax",
 	"cl", "cx",
@@ -91,29 +91,17 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 	bool S, D, is_reg_not_mem, is_direct_access; //D means reg is dest
 	//Instructions appear here in same order as 8086 manual (page 4-20).
 	if(bytes[0]>>2 == 0b100010)
-	{	//MOV R/M <D> REG
+	{	//MOV R/M <D> REG TODO:MEMORY!
 		D = bytes[0] & MASK_BIT_7;
 		targetP->W = bytes[0] & MASK_BIT_8;
 		targetP->mod_value = bytes[1]>>6;
-		rm_value = SubByte_ic(bytes[1], 5, 3);
-		is_reg_not_mem = (targetP->mod_value == 0b11);
-		is_direct_access = (targetP->mod_value==0b00 && rm_value==0b110);
-		disp_size = is_direct_access? 2 : (targetP->mod_value % 3);
+		disp_size =  targetP->mod_value % 3;
 		targetP->mnemonic_type = MNEM_MOV;
 		targetP->size = 2 + disp_size;
 		targetP->operand_types[!D] = OPERAND_TYPE_REGISTER;
-		targetP->operand_types[D] = is_reg_not_mem?
-			OPERAND_TYPE_REGISTER
-			:
-			OPERAND_TYPE_MEMORY;
+		targetP->operand_types[D] = OPERAND_TYPE_REGISTER;
 		targetP->operand_values[!D] = SubByte_ic(bytes[1], 2, 3);//REG
 		targetP->operand_values[D] = SubByte_ic(bytes[1], 5, 3);//R/M
-		if(disp_size)
-			targetP->disp_value = (is_direct_access || targetP->mod_value==0b10)?
-				*(s16*)(bytes+2)
-				:
-				*(s8*)(bytes+2);
-		else targetP->disp_value = 0;
 	}
 	else if(bytes[0]>>2 == 0b110001 &&! (bytes[1] & 0b00111000))
 	{	//MOV R/M, IMM
@@ -156,53 +144,27 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->operand_values[0] = SubByte_ic(bytes[0], 5, 3);//RM
 		targetP->operand_values[1] = *((s16*)(bytes+1));//IMM
 	}
-	else if((bytes[0] & 0b11000100) == 0b00000000)
-	{	//ADD/SUB/CMP R/M <D> REG
-		//HER HERE HERE HERE HERE HERE
-		//HER HERE HERE HERE HERE HERE
-		//HER HERE HERE HERE HERE HERE
-		//HER HERE HERE HERE HERE HERE
-		//HER HERE HERE HERE HERE HERE
-		//HER HERE HERE HERE HERE HERE
-		switch((bytes[0] & 0b00111000) >> 3)
-		{
-		case 0b000:
-			targetP->mnemonic_type = MNEM_ADD;
-			break;
-		case 0b101:
-			targetP->mnemonic_type = MNEM_SUB;
-			break;
-		case 0b111:
-			targetP->mnemonic_type = MNEM_CMP;
-			break;
-		default:
-			SPAM("ERROR DECODING MONEMONIC IN ADD/SUB/CMP R/M,IMM");
-			break;
-		}
+	else if(bytes[0]>>2 == 0b000000)
+	{	//ADD R/M <D> REG TODO:MEMORY!
 		D = bytes[0] & MASK_BIT_7;
 		targetP->W = bytes[0] & MASK_BIT_8;
 		targetP->mod_value = bytes[1]>>6;
-		rm_value = SubByte_ic(bytes[1], 5, 3);
-		is_reg_not_mem = (targetP->mod_value == 0b11);
-		is_direct_access = (targetP->mod_value==0b00 && rm_value==0b110);
-		disp_size = is_direct_access? 2 : (targetP->mod_value % 3);
+		disp_size =  targetP->mod_value % 3;
+		targetP->mnemonic_type = MNEM_ADD;
 		targetP->size = 2 + disp_size;
 		targetP->operand_types[!D] = OPERAND_TYPE_REGISTER;
-		targetP->operand_types[D] = is_reg_not_mem?
-			OPERAND_TYPE_REGISTER
-			:
-			OPERAND_TYPE_MEMORY;
+		targetP->operand_types[D] = OPERAND_TYPE_REGISTER;
 		targetP->operand_values[!D] = SubByte_ic(bytes[1], 2, 3);//REG
 		targetP->operand_values[D] = SubByte_ic(bytes[1], 5, 3);//R/M
-		if(disp_size)
-			targetP->disp_value = (is_direct_access || targetP->mod_value==0b10)?
-				*(s16*)(bytes+2)
-				:
-				*(s8*)(bytes+2);
-		else targetP->disp_value = 0;
 	}
 	else if(bytes[0]>>2 == 0b100000)
 	{	//(ADD/SUB/CMP) R/M, IMM
+		//HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
+		//HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
+		//HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
+		//HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
+		//HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
+		//HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
 		switch((bytes[1] & 0b00111000) >> 3)
 		{
 		case 0b000:
@@ -215,13 +177,12 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 			targetP->mnemonic_type = MNEM_CMP;
 			break;
 		default:
-			SPAM("ERROR DECODING MONEMONIC IN ADD/SUB/CMP R/M,IMM");
-			break;
 		}
 		targetP->W = (bytes[0] & MASK_BIT_8);
 		targetP->mod_value = bytes[1]>>6;
 		is_reg_not_mem = (targetP->mod_value == 0b11);
 		disp_size = targetP->mod_value % 3;
+		targetP->mnemonic_type = MNEM_ADD;
 		S = (bytes[0] & MASK_BIT_7);
 		bool immediate_is_word = targetP->W && !S;
 		targetP->size = 3 + immediate_is_word + disp_size;
@@ -233,7 +194,7 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->operand_values[0] = SubByte_ic(bytes[1], 5, 3);//RM
 		if(immediate_is_word)
 		{
-			targetP->operand_values[1] = *((s16*)(bytes+2+disp_size));//IMM
+			targetP->operand_values[1] = *((u16*)(bytes+2+disp_size));//IMM
 		}
 		else
 		{
@@ -252,6 +213,27 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->operand_types[D] = OPERAND_TYPE_REGISTER;
 		targetP->operand_values[!D] = SubByte_ic(bytes[1], 2, 3);//REG
 		targetP->operand_values[D] = SubByte_ic(bytes[1], 5, 3);//R/M
+	}
+	else if(bytes[0]>>2 == 0b100000 && ((bytes[1]&0b00111000) == 0b00101000))
+	{	//SUB R/M, IMM TODO:MEMORY!
+		targetP->W = bytes[0] & MASK_BIT_8;
+		//S???
+		targetP->mod_value = bytes[1]>>6;
+		disp_size =  targetP->mod_value % 3;
+		targetP->mnemonic_type = MNEM_SUB;
+		bool immediate_is_word = targetP->W && !(bytes[0] & MASK_BIT_7);
+		targetP->size = 3 + immediate_is_word + disp_size;
+		targetP->operand_types[0] = OPERAND_TYPE_REGISTER;
+		targetP->operand_types[1] = OPERAND_TYPE_IMMEDIATE;
+		targetP->operand_values[0] = SubByte_ic(bytes[1], 5, 3);//REG
+		if(immediate_is_word)
+		{	//Immediate is only word if W && !S.
+			targetP->operand_values[1] = *((u16*)(bytes+2+disp_size));//IMM
+		}
+		else
+		{
+			targetP->operand_values[1] = *((u8*)(bytes+2+disp_size));//IMM
+		}
 	}
 	else if(bytes[0]>>2 == 0b001110)
 	{	//CMP R/M <D> REG TODO:MEMORY!
@@ -272,11 +254,13 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		targetP->size = 2;
 		targetP->operand_types[0] = OPERAND_TYPE_IMMEDIATE;
 		targetP->operand_types[0] = OPERAND_TYPE_NONE;
-		targetP->operand_values[0] = *(s8*)(bytes+1);
+		targetP->operand_values[0] = *(u8*)(bytes+1);
 	}
 	else
 	{
-		SPAM("[[[DECODING ERROR! COULDN'T SELECT OPERATION TYPE!]]]\n");
+		printf("[[[DECODING ERROR! COULDN'T SELECT OPERATION TYPE!]]]\n");
+		printf("[[[DECODING ERROR! COULDN'T SELECT OPERATION TYPE!]]]\n");
+		printf("[[[DECODING ERROR! COULDN'T SELECT OPERATION TYPE!]]]\n\n");
 	}
 	//Populate string:
 	char elements[2][32] = {"", ""};;
@@ -299,7 +283,7 @@ void DecodeBinaryAndPopulateInstruction(Instr8086 *targetP, u8 *bytes)
 		sprintf(mnemonic_string,  "sub");
 		break;
 	default:
-		SPAM("ERROR SELECTING MNEMONIC IN PopulateInstructionString!!!");
+		SPAM(69)("ERROR SELECTING MNEMONIC IN PopulateInstructionString!!!");
 		break;
 	}
 	//TODO: Handle stuff like "word" and "byte"

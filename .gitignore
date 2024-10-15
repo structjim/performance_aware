@@ -3,6 +3,9 @@
 \#*\#
 .\#*
 
+# All output folders
+*/output/*
+
 # Binaries
 *.bin
 

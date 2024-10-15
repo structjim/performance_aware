@@ -1,0 +1,26 @@
+#!/bin/bash
+
+###################
+## BUILD AND RUN ##
+###################
+# (No relation to the counterpart of "foo".)
+
+clear
+
+#Delete all output files from previous runs.
+mkdir -p output
+rm output/*
+
+#C source file name, sans extension
+source_name="json_builder"
+
+echo "[[[BAR: COMPILE WITH GCC...]]]"
+gcc $source_name.c -Wall -Werror -std=c99 -o output/$source_name.bin -lm
+
+echo "[[[BAR: RUN COMPILED PROGRAM...]]]"
+./output/$source_name.bin
+
+cat output/hav_values.json
+echo
+
+echo "[[[BAR: DONE]]]"
