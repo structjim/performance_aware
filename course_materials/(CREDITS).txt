@@ -1,5 +1,0 @@
-Homework "listing" files are property of Molly Rocket and reused for education purposes only.
-
-Original homework files are publically available here: https://github.com/cmuratori/computer_enhance
-
-Please see https://computerenhance.com for further information.
