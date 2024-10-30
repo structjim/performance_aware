@@ -12,15 +12,26 @@ mkdir -p output
 rm output/*
 
 #C source file name, sans extension
-source_name="json_builder"
+source_name_a="json_builder"
+source_name_b="hav_calc_BAD"
 
-echo "[[[BAR: COMPILE WITH GCC...]]]"
-gcc $source_name.c -Wall -Werror -std=c99 -o output/$source_name.bin -lm
+echo "[[[BAR: COMPILE JSON GENERATOR...]]]"
+gcc $source_name_a.c -Wall -Werror -std=c99 -o output/$source_name_a.bin -lm
 
-echo "[[[BAR: RUN COMPILED PROGRAM...]]]"
-./output/$source_name.bin
+echo "[[[BAR: COMPILE HAV CALCULATOR...]]]"
+gcc $source_name_b.c -Wall -Werror -std=c99 -o output/$source_name_b.bin -lm
 
+echo "[[[BAR: RUN JSON GENERATOR...]]]"
+./output/$source_name_a.bin
+
+echo "[[[BAR: CAT THE OUTPUT JSON...]]]"
+echo ""
 cat output/hav_values.json
-echo
+echo ""
+
+echo "[[[BAR: RUN HAV CALCULATOR...]]]"
+echo ""
+./output/$source_name_b.bin output/hav_values.json
+echo ""
 
 echo "[[[BAR: DONE]]]"
