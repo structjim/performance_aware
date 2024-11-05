@@ -17,6 +17,7 @@
 
 //If you want debug mode, set this at start of main(), NOT HERE!
 bool DEBUG=0;
+bool PROFILE=0;
 
 typedef uint8_t u8;
 typedef uint16_t u16;

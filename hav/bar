@@ -1,9 +1,12 @@
 #!/bin/bash
 
-###################
-## BUILD AND RUN ##
-###################
+# ###################
+# ## BUILD AND RUN ##
+# ###################
 # (No relation to the counterpart of "foo".)
+#
+# INSTRUCTIONS: Pass a sample count to this script.
+# If no argument, default sample count is 100,000.
 
 clear
 
@@ -14,6 +17,14 @@ rm output/*
 #C source file name, sans extension
 source_name_a="json_builder"
 source_name_b="hav_calc_BAD"
+# Check if at least one argument is provided
+if [ $# -ge 1 ]; then
+    # If argument provided, assign it to sample_count.
+    sample_count=$1
+else
+    # If no argument, use 100,000.
+    sample_count=100000
+fi
 
 echo "[[[BAR: COMPILE JSON GENERATOR...]]]"
 gcc $source_name_a.c -Wall -Werror -std=c99 -o output/$source_name_a.bin -lm
@@ -22,16 +33,17 @@ echo "[[[BAR: COMPILE HAV CALCULATOR...]]]"
 gcc $source_name_b.c -Wall -Werror -std=c99 -o output/$source_name_b.bin -lm
 
 echo "[[[BAR: RUN JSON GENERATOR...]]]"
-./output/$source_name_a.bin
+./output/$source_name_a.bin $sample_count
 
-echo "[[[BAR: CAT THE OUTPUT JSON...]]]"
-echo ""
-cat output/hav_values.json
-echo ""
+#echo "[[[BAR: CAT THE OUTPUT JSON...]]]"
+#echo ""
+#cat output/hav_values.json
+#echo ""
 
 echo "[[[BAR: RUN HAV CALCULATOR...]]]"
 echo ""
 ./output/$source_name_b.bin output/hav_values.json
 echo ""
 
+echo "[[[BAR: SAMPLE COUNT WAS $sample_count]]]"
 echo "[[[BAR: DONE]]]"

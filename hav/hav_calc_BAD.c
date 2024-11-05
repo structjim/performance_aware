@@ -7,9 +7,13 @@
 #include<assert.h>
 //#include<time.h>
 #include"../hole/jims_general_tools.HOLE.h"
+#include"listing_0065_haversine_formula.cpp"
+#include"profiler_bad.HOLE.h"
 
 //We need the first version to be kind of
 //naive and BAD, so we'll just use a LL.
+
+const f64 EARTH_RADIUS = 6372.8;
 
 //Structs
 typedef struct
@@ -23,7 +27,8 @@ typedef struct _LLNode_HavSet
 }LLNode_HavSet;
 typedef struct
 {
-	LLNode_HavSet *headP, *tailP; u32 n;
+	LLNode_HavSet *headP, *tailP;
+	u32 n;
 }LL_HavSet;
 
 //Functions
@@ -40,14 +45,23 @@ LL_HavSet hav_sets = {0};
 //////////////////////
 int main(int argc, char *argv[])
 {
-	DEBUG=1;
+	DEBUG=0;
 	DEBUG_PRINT("Values parsed:\n");
+	PROFILE = 1;
+	_SPLIT("START");
+/*
+	ProfileSplit my_split;
+	strncpy(my_split.label, "Wut...", 31);
+	my_split.timestamp = 69.696969f;
+	append_ll_profile_split(&splits, &my_split);
+*/
 	bool end_of_file_reached = false;
 	FILE *fInP = fopen(argv[1], "rb");
 	//int fInSz = ftell(fInP); //Store position (file size)
 	//fseek(fInP, 0L, SEEK_SET);//Return to start of file
 	move_to_next_colon(fInP); //To first colon, in "pairs:"
 	end_of_file_reached = move_to_next_colon(fInP); //To colon before first value
+	_SPLIT("BEGIN PARSE");	
 	while( ! end_of_file_reached)
 	{	//Each iteration loads one hav set
 		f64 hav_values[4];
@@ -60,8 +74,25 @@ int main(int argc, char *argv[])
 		HavSet hav_set = {hav_values[0], hav_values[1], hav_values[2], hav_values[3]};
 		append_ll_hav_set(&hav_sets, &hav_set);
 	}
-	printf("DONE.\n");
-}
+	_SPLIT("END PARSE / BEGIN MATH");;
+	//Haversine math
+	f64 average_total = 0.0f;
+	f64 avg_mod = 1.0f / hav_sets.n;
+	LLNode_HavSet *nodeP = hav_sets.headP;
+	for(int i=0 ; i<hav_sets.n ; i++)
+	{
+		f64 x0 = nodeP->data.x0;
+		f64 y0 = nodeP->data.y0;
+		f64 x1 = nodeP->data.x1;
+		f64 y1 = nodeP->data.y1;
+		average_total += avg_mod * ReferenceHaversine(x0, y0, x1, y1,
+												   EARTH_RADIUS);
+		nodeP = nodeP->nextP;
+	}
+	_SPLIT("END MATH");
+	printf("\vAverage Haversine value: %f\n", average_total);
+	PRINT_PROFILE_SPLITS();
+}//END MAIN
 
 HavSet *get_ll_hav_set(LL_HavSet *ll_INP, u32 index_to_get)
 {

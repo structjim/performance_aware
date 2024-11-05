@@ -7,13 +7,12 @@
 //#include<time.h>
 #include"../hole/jims_general_tools.HOLE.h"
 //#include"listing_0065_haversine_formula.cpp"
-
-const u32 samples_needed = 6;
 const u16 X_ABS_MAX = 180;
 const u16 Y_ABS_MAX = 90;
 
-int main()
+int main(int argc, char *argv[])
 {
+	const u32 samples_needed = atoi(argv[1]);
 /*	JSON format...
 	{"pairs":[
 	{"x0":1.0, "y0":1.0, "x1":1.0, "y1":1.0},
